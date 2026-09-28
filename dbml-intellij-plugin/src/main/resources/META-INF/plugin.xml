@@ -1,0 +1,14 @@
+<idea-plugin>
+    <id>io.github.dbmldiagram</id>
+    <name>DBML Diagram</name>
+    <vendor>DBML Diagram Contributors</vendor>
+    <description><![CDATA[Offline DBML editor with realtime SVG entity-relationship diagram preview.]]></description>
+    <depends>com.intellij.modules.platform</depends>
+
+    <extensions defaultExtensionNs="com.intellij">
+        <fileType name="DBML" language="DBML" implementationClass="io.github.dbmldiagram.plugin.language.DbmlFileType" extensions="dbml"/>
+        <lang.syntaxHighlighterFactory language="DBML" implementationClass="io.github.dbmldiagram.plugin.language.DbmlSyntaxHighlighterFactory"/>
+        <lang.commenter language="DBML" implementationClass="io.github.dbmldiagram.plugin.language.DbmlCommenter"/>
+        <fileEditorProvider implementation="io.github.dbmldiagram.plugin.editor.DbmlFileEditorProvider"/>
+    </extensions>
+</idea-plugin>

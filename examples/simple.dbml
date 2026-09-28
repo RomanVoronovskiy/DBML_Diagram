@@ -1,0 +1,31 @@
+Project example {
+    database_type: 'PostgreSQL'
+}
+
+Enum order_status {
+    CREATED
+    PAID
+    CANCELLED
+}
+
+Table users {
+    id uuid [pk]
+    email varchar(255) [not null, unique]
+    name varchar(255)
+    created_at timestamptz [not null]
+}
+
+Table orders {
+    id uuid [pk]
+    user_id uuid [not null]
+    status order_status [not null]
+    amount numeric(19,2) [not null]
+    created_at timestamptz [not null]
+
+    indexes {
+        user_id
+        (user_id, status)
+    }
+}
+
+Ref: orders.user_id > users.id

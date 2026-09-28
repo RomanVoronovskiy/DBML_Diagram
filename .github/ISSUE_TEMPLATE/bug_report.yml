@@ -1,0 +1,56 @@
+name: Bug report
+description: Report a reproducible DBML Diagram problem.
+title: "[Bug]: "
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: Thanks for taking the time to report a problem.
+  - type: input
+    id: plugin-version
+    attributes:
+      label: Plugin version
+      placeholder: 0.1.0
+    validations:
+      required: true
+  - type: input
+    id: ide-version
+    attributes:
+      label: IDE and version
+      placeholder: IntelliJ IDEA 2026.1 or DataGrip 2026.1
+    validations:
+      required: true
+  - type: textarea
+    id: dbml
+    attributes:
+      label: Minimal DBML example
+      description: Remove private names and data before posting.
+      render: dbml
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior and diagnostics
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant IDE log excerpt
+      render: text
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Checklist
+      options:
+        - label: I searched existing issues.
+          required: true
+        - label: I removed credentials and private schema details.
+          required: true
