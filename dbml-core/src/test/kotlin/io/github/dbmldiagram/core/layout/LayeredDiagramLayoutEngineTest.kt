@@ -28,4 +28,25 @@ class LayeredDiagramLayoutEngineTest {
         assertEquals(orders.y + 48.0 + 26.0 + 13.0, edge.points.first().y)
         assertEquals(users.y + 48.0 + 13.0, edge.points.last().y)
     }
+
+    @Test
+    fun `applies manual table positions and reroutes relationship endpoints`() {
+        val schema = TolerantDbmlParser().parse(
+            """
+            Table users { id uuid [pk] }
+            Table orders { user_id uuid [ref: > users.id] }
+            """.trimIndent(),
+        ).schema!!
+        val requested = DiagramPoint(900.0, 420.0)
+
+        val layout = LayeredDiagramLayoutEngine(mapOf("orders" to requested)).layout(schema)
+        val orders = layout.nodes.single { it.tableId == "orders" }
+        val edge = layout.edges.single()
+
+        assertEquals(requested.x, orders.x)
+        assertEquals(requested.y, orders.y)
+        assertEquals(orders.x, edge.points.first().x)
+        assertEquals(orders.y + 48.0 + 13.0, edge.points.first().y)
+        assertEquals(true, layout.width > orders.x + orders.width)
+    }
 }

@@ -6,7 +6,9 @@ import io.github.dbmldiagram.core.model.DbmlTable
 import kotlin.math.max
 
 /** Deterministic, dependency-free layered layout suitable for offline previews. */
-class LayeredDiagramLayoutEngine : DiagramLayoutEngine {
+class LayeredDiagramLayoutEngine(
+    private val manualPositions: Map<String, DiagramPoint> = emptyMap(),
+) : DiagramLayoutEngine {
     override fun layout(schema: DbmlSchema): DiagramLayout {
         if (schema.tables.isEmpty()) return DiagramLayout(emptyList(), emptyList(), 640.0, 360.0)
         val tablesByName = schema.tables.associateBy { it.qualifiedName.lowercase() }
@@ -50,7 +52,13 @@ class LayeredDiagramLayoutEngine : DiagramLayoutEngine {
             }
             x += columnWidth + horizontalGap
         }
-        val nodeMap = nodes.associateBy { it.tableId.lowercase() }
+        val positionsByTable = manualPositions.entries.associate { it.key.lowercase() to it.value }
+        val positionedNodes = nodes.map { node ->
+            positionsByTable[node.tableId.lowercase()]?.let { position ->
+                node.copy(x = position.x.coerceAtLeast(margin), y = position.y.coerceAtLeast(margin))
+            } ?: node
+        }
+        val nodeMap = positionedNodes.associateBy { it.tableId.lowercase() }
         val edges = schema.references.mapNotNull { ref ->
             val fromRef = ref.foreignKeyEndpoint() ?: ref.from
             val toRef = ref.referencedEndpoint() ?: ref.to
@@ -68,9 +76,9 @@ class LayeredDiagramLayoutEngine : DiagramLayoutEngine {
             val middleX = (p1.x + p4.x) / 2
             RelationEdge(ref, listOf(p1, DiagramPoint(middleX, p1.y), DiagramPoint(middleX, p4.y), p4))
         }
-        val width = max(640.0, nodes.maxOf { it.x + it.width } + margin)
-        val height = max(360.0, nodes.maxOf { it.y + it.height } + margin)
-        return DiagramLayout(nodes, edges, width, height)
+        val width = max(640.0, positionedNodes.maxOf { it.x + it.width } + margin)
+        val height = max(360.0, positionedNodes.maxOf { it.y + it.height } + margin)
+        return DiagramLayout(positionedNodes, edges, width, height)
     }
 
     private fun tableWidth(name: String, columns: List<Pair<String, String>>): Double {

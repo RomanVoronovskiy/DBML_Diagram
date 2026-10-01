@@ -12,6 +12,7 @@ All notable changes to DBML Diagram are documented in this file. The project fol
 - Named primary, unique, and foreign-key constraints, indexes, comments, identity columns, defaults, and referential actions in generated DDL.
 - Explicit `PK`, `FK`, `UNIQ`, and `NOT_NULL` column markers in the SVG diagram.
 - Directed FK-to-referenced-column relationship arrows with `N:1` and `1:1` endpoint labels.
+- Draggable tables with per-file workspace persistence and custom-layout SVG/PNG export.
 - Composite primary-key parsing from DBML index blocks.
 - Open-source project governance, contribution guidelines, security policy, and CI.
 

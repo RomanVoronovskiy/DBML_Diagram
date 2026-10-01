@@ -12,6 +12,7 @@ DBML Diagram is an open-source, offline IntelliJ Platform plugin that shows a re
 - Debounced (300 ms), cancellable background parsing, layout, and SVG rendering.
 - Last valid diagram remains visible while the document contains a parse error.
 - Pan, Ctrl/Cmd + mouse-wheel zoom, Fit, zoom buttons, 100%, and manual Refresh.
+- Drag tables by their headers; personal positions are restored per DBML file.
 - Full-diagram standalone SVG and PNG export. PNG rasterization uses Apache Batik and has a 16,384 px / 40 MP safety limit.
 - PostgreSQL, MySQL, and Oracle DDL export with named primary, unique, and foreign-key constraints, indexes, defaults, comments, and referential actions.
 - Visible `PK`, `FK`, `UNIQ`, and `NOT_NULL` markers on diagram columns.
@@ -86,6 +87,8 @@ Choose **PostgreSQL**, **MySQL**, or **Oracle** next to **DDL dialect**, then us
 
 Diagram relationships are anchored to their actual columns, drawn from the physical foreign-key column toward the referenced column, and labelled `N → 1` or `1 → 1`. Column constraints are shown between the column name and SQL type as `PK`, `FK`, `UNIQ`, and `NOT_NULL`.
 
+Drag a table by its header to create a custom layout. Positions are stored in the IDE workspace for that DBML file, survive preview refreshes, and are applied to exported SVG and PNG files. Use **Reset layout** to discard them and return to the automatic layered layout.
+
 Many-to-many `<>` relationships require an explicit junction table in DBML; the generated SQL includes a comment when such a relationship cannot be represented as a direct foreign key.
 
 ## Known limitations
@@ -105,4 +108,4 @@ The project is released under the [Apache License 2.0](LICENSE). Changes are tra
 
 ## Roadmap
 
-Future work may add DBML PSI, completion/navigation/refactoring, ELK layout, persisted manual positions, visual editing, Git history, and semantic schema diff.
+Future work may add DBML PSI, completion/navigation/refactoring, ELK layout, richer visual editing, Git history, and semantic schema diff.

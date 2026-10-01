@@ -1,23 +1,43 @@
 package io.github.dbmldiagram.plugin.preview
 
+internal data class PreviewViewState(val scale: Double, val x: Double, val y: Double)
+
 internal object PreviewHtml {
-    fun page(svg: String?, message: String?, dark: Boolean): String {
+    fun page(
+        svg: String?,
+        message: String?,
+        dark: Boolean,
+        positionCallback: String? = null,
+        viewState: PreviewViewState? = null,
+    ): String {
         val diagram = svg ?: "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 640 360\"><text x=\"40\" y=\"60\">Waiting for valid DBML…</text></svg>"
         val notice = message?.let { "<div id=\"notice\">${escape(it)}</div>" } ?: ""
         val colors = if (dark) "--bg:#2b2b2b;--card:#3c3f41;--header:#45494a;--text:#d7d7d7;--muted:#a8a8a8;--border:#696b6c;--edge:#96999b;--relation:#6ea3ff;--accent:#77a7e8" else "--bg:#f7f8fa;--card:#fff;--header:#eef1f5;--text:#24292f;--muted:#65717e;--border:#9aa0a6;--edge:#79838e;--relation:#356ae6;--accent:#3d65a5"
+        val initialScale = viewState?.scale ?: 1.0
+        val initialX = viewState?.x ?: 20.0
+        val initialY = viewState?.y ?: 20.0
+        val hasInitialView = viewState != null
+        val savePosition = positionCallback ?: ""
         return """<!doctype html><html><head><meta charset="utf-8"><style>
 html,body{margin:0;width:100%;height:100%;overflow:hidden;$colors;background:var(--bg);color:var(--text);font:12px -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
 #notice{position:fixed;z-index:5;left:12px;top:10px;right:12px;padding:7px 10px;border:1px solid #b9923d;border-radius:4px;background:${if (dark) "#594b2b" else "#fff4ce"};white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 #viewport{width:100%;height:100%;cursor:grab;transform-origin:0 0}#viewport.dragging{cursor:grabbing}#diagram{position:absolute;left:0;top:0;transform-origin:0 0}
 #diagram svg{--dbml-bg:var(--bg);--dbml-card:var(--card);--dbml-header:var(--header);--dbml-text:var(--text);--dbml-muted:var(--muted);--dbml-border:var(--border);--dbml-edge:var(--edge);--dbml-relation:var(--relation);--dbml-accent:var(--accent)}
+#diagram .head,#diagram .title{cursor:move}
 </style></head><body>$notice<div id="viewport"><div id="diagram">$diagram</div></div><script>
-let scale=1,tx=20,ty=20,drag=false,lx=0,ly=0; const d=document.getElementById('diagram'),v=document.getElementById('viewport');
+let scale=$initialScale,tx=$initialX,ty=$initialY,drag=false,lx=0,ly=0,tableDrag=null; const d=document.getElementById('diagram'),v=document.getElementById('viewport');
 function apply(){d.style.transform='translate('+tx+'px,'+ty+'px) scale('+scale+')'}
 function zoom(f){scale=Math.max(.1,Math.min(4,scale*f));apply()}
 function actual(){scale=1;tx=20;ty=20;apply()}
 function fit(){const s=d.querySelector('svg');if(!s)return;const w=parseFloat(s.getAttribute('width')||640),h=parseFloat(s.getAttribute('height')||360);scale=Math.min((innerWidth-40)/w,(innerHeight-40)/h,1.5);tx=(innerWidth-w*scale)/2;ty=(innerHeight-h*scale)/2;apply()}
-v.addEventListener('mousedown',e=>{drag=true;lx=e.clientX;ly=e.clientY;v.classList.add('dragging')});addEventListener('mouseup',()=>{drag=false;v.classList.remove('dragging')});addEventListener('mousemove',e=>{if(drag){tx+=e.clientX-lx;ty+=e.clientY-ly;lx=e.clientX;ly=e.clientY;apply()}});
-v.addEventListener('wheel',e=>{if(e.ctrlKey||e.metaKey){e.preventDefault();zoom(e.deltaY<0?1.12:.89)}},{passive:false});addEventListener('resize',fit);fit();
+window.saveTablePosition=function(table,x,y){const payload=encodeURIComponent(table)+'\t'+x+'\t'+y+'\t'+scale+'\t'+tx+'\t'+ty;$savePosition};
+v.addEventListener('pointerdown',e=>{const target=e.target,group=target.closest&&target.closest('g[data-table]');if(!group||!(target.classList.contains('head')||target.classList.contains('title')))return;e.preventDefault();e.stopPropagation();const startX=parseFloat(group.dataset.x),startY=parseFloat(group.dataset.y);tableDrag={group:group,pointerId:e.pointerId,startClientX:e.clientX,startClientY:e.clientY,startX:startX,startY:startY,x:startX,y:startY};group.setPointerCapture(e.pointerId)});
+v.addEventListener('pointermove',e=>{if(!tableDrag||tableDrag.pointerId!==e.pointerId)return;e.preventDefault();const x=Math.max(48,tableDrag.startX+(e.clientX-tableDrag.startClientX)/scale),y=Math.max(48,tableDrag.startY+(e.clientY-tableDrag.startClientY)/scale);tableDrag.x=x;tableDrag.y=y;tableDrag.group.setAttribute('transform','translate('+(x-tableDrag.startX)+' '+(y-tableDrag.startY)+')')});
+function finishTableDrag(e){if(!tableDrag||tableDrag.pointerId!==e.pointerId)return;const moved=Math.abs(tableDrag.x-tableDrag.startX)>.1||Math.abs(tableDrag.y-tableDrag.startY)>.1;const current=tableDrag;tableDrag=null;if(current.group.hasPointerCapture(e.pointerId))current.group.releasePointerCapture(e.pointerId);if(moved)window.saveTablePosition(current.group.dataset.table,current.x.toFixed(2),current.y.toFixed(2))}
+v.addEventListener('pointerup',finishTableDrag);v.addEventListener('pointercancel',finishTableDrag);
+v.addEventListener('mousedown',e=>{if(e.target.closest&&e.target.closest('g[data-table]'))return;drag=true;lx=e.clientX;ly=e.clientY;v.classList.add('dragging')});addEventListener('mouseup',()=>{drag=false;v.classList.remove('dragging')});addEventListener('mousemove',e=>{if(drag){tx+=e.clientX-lx;ty+=e.clientY-ly;lx=e.clientX;ly=e.clientY;apply()}});
+v.addEventListener('wheel',e=>{if(e.ctrlKey||e.metaKey){e.preventDefault();zoom(e.deltaY<0?1.12:.89)}},{passive:false});addEventListener('resize',fit);
+if($hasInitialView)apply();else fit();
 </script></body></html>"""
     }
     private fun escape(value: String) = value.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace("\"", "&quot;")

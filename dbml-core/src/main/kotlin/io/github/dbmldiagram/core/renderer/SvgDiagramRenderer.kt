@@ -37,7 +37,8 @@ class SvgDiagramRenderer : DiagramRenderer {
                     ?: table.columns.filter { it.primaryKey }.map { it.name }
                 ).map(String::lowercase).toSet()
             val uniqueColumns = table.indexes.filter { it.unique }.flatMap { it.columns }.map(String::lowercase).toSet()
-            append("<g data-table=\"").append(escape(table.qualifiedName)).append("\">")
+            append("<g data-table=\"").append(escape(table.qualifiedName))
+                .append("\" data-x=\"").append(node.x).append("\" data-y=\"").append(node.y).append("\">")
             append("<rect class=\"table\" x=\"${node.x}\" y=\"${node.y}\" width=\"${node.width}\" height=\"${node.height}\" rx=\"5\"/>")
             append("<path class=\"head\" d=\"M${node.x + 5},${node.y} H${node.x + node.width - 5} Q${node.x + node.width},${node.y} ${node.x + node.width},${node.y + 5} V${node.y + 38} H${node.x} V${node.y + 5} Q${node.x},${node.y} ${node.x + 5},${node.y}Z\"/>")
             append("<line class=\"separator\" x1=\"${node.x}\" y1=\"${node.y + 38}\" x2=\"${node.x + node.width}\" y2=\"${node.y + 38}\"/>")

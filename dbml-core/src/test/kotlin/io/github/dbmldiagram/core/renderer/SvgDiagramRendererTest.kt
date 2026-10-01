@@ -14,6 +14,7 @@ class SvgDiagramRendererTest {
         assertContains(svg, "viewBox=")
         assertContains(svg, "users")
         assertContains(svg, "PK")
+        assertContains(svg, "data-table=\"users\" data-x=")
     }
 
     @Test fun `renders explicit constraints and marks only foreign key side`() {
