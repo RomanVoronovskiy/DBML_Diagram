@@ -13,6 +13,7 @@ All notable changes to DBML Diagram are documented in this file. The project fol
 - Explicit `PK`, `FK`, `UNIQ`, and `NOT_NULL` column markers in the SVG diagram.
 - Directed FK-to-referenced-column relationship arrows with `N:1` and `1:1` endpoint labels.
 - Draggable tables with per-file workspace persistence and custom-layout SVG/PNG export.
+- Persistent manual relationship routing with four attachment sides per table and movable orthogonal route controls.
 - Composite primary-key parsing from DBML index blocks.
 - Open-source project governance, contribution guidelines, security policy, and CI.
 
@@ -20,6 +21,7 @@ All notable changes to DBML Diagram are documented in this file. The project fol
 
 - Foreign-key markers are now shown only on the referencing side of a relationship.
 - Constraint markers now use the space between column names and SQL types.
+- Relationship lines and arrowheads now render on a foreground layer instead of disappearing behind table cards.
 - Quoted string defaults and backtick SQL expressions are preserved for DDL generation.
 
 ## [0.1.0] - 2026-09-28

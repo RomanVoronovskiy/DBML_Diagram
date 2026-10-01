@@ -48,6 +48,16 @@ data class DbmlReference(
     val onUpdate: String? = null,
     val inline: Boolean = false,
 ) {
+    /** Stable key used for persisted visual routing settings. */
+    fun routeId(): String = listOf(
+        name.orEmpty(),
+        from.tableName,
+        from.column,
+        cardinality.name,
+        to.tableName,
+        to.column,
+    ).joinToString("|")
+
     /** Column that owns the physical foreign-key constraint, when the relation maps to one. */
     fun foreignKeyEndpoint(): DbmlColumnRef? = when (cardinality) {
         DbmlCardinality.MANY_TO_ONE -> from

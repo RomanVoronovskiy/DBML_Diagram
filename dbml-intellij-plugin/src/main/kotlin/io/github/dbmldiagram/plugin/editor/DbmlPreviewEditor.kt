@@ -19,6 +19,8 @@ import com.intellij.util.ui.JBUI
 import io.github.dbmldiagram.core.ddl.DdlDialect
 import io.github.dbmldiagram.core.layout.DiagramPoint
 import io.github.dbmldiagram.core.layout.LayeredDiagramLayoutEngine
+import io.github.dbmldiagram.core.layout.ManualRelationRoute
+import io.github.dbmldiagram.core.layout.TableSide
 import io.github.dbmldiagram.core.model.DbmlParseError
 import io.github.dbmldiagram.core.model.DbmlSchema
 import io.github.dbmldiagram.core.parser.TolerantDbmlParser
@@ -50,7 +52,8 @@ class DbmlPreviewEditor(private val project: Project, private val file: VirtualF
     private val document: Document = requireNotNull(FileDocumentManager.getInstance().getDocument(file)) { "No document for ${file.path}" }
     private val positionStore = DiagramPositionStore(project, file)
     private val manualPositions = ConcurrentHashMap(positionStore.load())
-    private val layoutEngine = LayeredDiagramLayoutEngine(manualPositions)
+    private val manualRoutes = ConcurrentHashMap(positionStore.loadRoutes())
+    private val layoutEngine = LayeredDiagramLayoutEngine(manualPositions, manualRoutes)
     private var lastValidSvg: String? = null
     private var lastValidSchema: DbmlSchema? = null
     private var pendingViewState: PreviewViewState? = null
@@ -70,7 +73,7 @@ class DbmlPreviewEditor(private val project: Project, private val file: VirtualF
 
     init {
         positionQuery?.addHandler { payload ->
-            acceptTablePosition(payload)
+            acceptPreviewChange(payload)
             null
         }
         panel.add(createToolbar(), BorderLayout.NORTH)
@@ -88,10 +91,12 @@ class DbmlPreviewEditor(private val project: Project, private val file: VirtualF
         add(button("+") { execute("zoom(1.25)") })
         add(button("Reset layout") {
             manualPositions.clear()
+            manualRoutes.clear()
             positionStore.clear()
+            positionStore.clearRoutes()
             pendingViewState = null
             scheduler.renderNow(document.immutableCharSequence.toString())
-        }.apply { toolTipText = "Discard saved table positions and restore automatic layout" })
+        }.apply { toolTipText = "Discard saved table positions and relationship routes" })
         add(button("Refresh") { scheduler.renderNow(document.immutableCharSequence.toString()) })
         add(JLabel("DDL dialect:"))
         add(ddlDialect)
@@ -137,11 +142,18 @@ class DbmlPreviewEditor(private val project: Project, private val file: VirtualF
         if (browser != null) browser.loadHTML(html) else fallback.text = "<html><body><b>${message ?: "JCEF is unavailable."}</b><p>The standard code editor remains usable.</p></body></html>"
     }
 
-    private fun acceptTablePosition(payload: String) {
+    private fun acceptPreviewChange(payload: String) {
         val parts = payload.split('\t')
-        if (parts.size != 6) return
-        val table = runCatching { URLDecoder.decode(parts[0], StandardCharsets.UTF_8.name()) }.getOrNull() ?: return
-        val values = parts.drop(1).map { it.toDoubleOrNull()?.takeIf(Double::isFinite) ?: return }
+        when (parts.firstOrNull()) {
+            "T" -> acceptTablePosition(parts)
+            "R" -> acceptRelationRoute(parts)
+        }
+    }
+
+    private fun acceptTablePosition(parts: List<String>) {
+        if (parts.size != 7) return
+        val table = decode(parts[1]) ?: return
+        val values = parts.drop(2).map { it.toDoubleOrNull()?.takeIf(Double::isFinite) ?: return }
         val point = DiagramPoint(values[0].coerceAtLeast(48.0), values[1].coerceAtLeast(48.0))
         val view = PreviewViewState(values[2].coerceIn(0.1, 4.0), values[3], values[4])
         ApplicationManager.getApplication().invokeLater {
@@ -152,6 +164,30 @@ class DbmlPreviewEditor(private val project: Project, private val file: VirtualF
             scheduler.renderNow(document.immutableCharSequence.toString())
         }
     }
+
+    private fun acceptRelationRoute(parts: List<String>) {
+        if (parts.size != 9) return
+        val relation = decode(parts[1]) ?: return
+        val fromSide = runCatching { TableSide.valueOf(parts[2].uppercase()) }.getOrNull() ?: return
+        val toSide = runCatching { TableSide.valueOf(parts[3].uppercase()) }.getOrNull() ?: return
+        val values = parts.drop(4).map { it.toDoubleOrNull()?.takeIf(Double::isFinite) ?: return }
+        val route = ManualRelationRoute(
+            fromSide,
+            toSide,
+            DiagramPoint(values[0].coerceAtLeast(20.0), values[1].coerceAtLeast(20.0)),
+        )
+        val view = PreviewViewState(values[2].coerceIn(0.1, 4.0), values[3], values[4])
+        ApplicationManager.getApplication().invokeLater {
+            if (disposed) return@invokeLater
+            manualRoutes[relation] = route
+            positionStore.saveRoutes(manualRoutes)
+            pendingViewState = view
+            scheduler.renderNow(document.immutableCharSequence.toString())
+        }
+    }
+
+    private fun decode(value: String): String? =
+        runCatching { URLDecoder.decode(value, StandardCharsets.UTF_8.name()) }.getOrNull()
 
     private fun execute(script: String) {
         val cef = browser?.cefBrowser ?: return

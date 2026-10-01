@@ -41,5 +41,10 @@ class SvgDiagramRendererTest {
         assertContains(svg, "<title>FK orders.user_id → REF users.id (N:1)</title>")
         assertContains(svg, ">N</text>")
         assertContains(svg, ">1</text>")
+        assertContains(svg, "class=\"relation-halo\"")
+        assertContains(svg, "class=\"relation-hit\"")
+        assertContains(svg, "data-from-side=\"")
+        assertEquals(8, Regex("class=\"route-snap\"").findAll(svg).count())
+        assertEquals(true, svg.indexOf("data-table=\"orders\"") < svg.indexOf("class=\"relation-route\""))
     }
 }
