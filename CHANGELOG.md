@@ -13,7 +13,7 @@ All notable changes to DBML Diagram are documented in this file. The project fol
 - Explicit `PK`, `FK`, `UNIQ`, and `NOT_NULL` column markers in the SVG diagram.
 - Directed FK-to-referenced-column relationship arrows with `N:1` and `1:1` endpoint labels.
 - Draggable tables with per-file workspace persistence and custom-layout SVG/PNG export.
-- Persistent manual relationship routing with four attachment sides per table and movable orthogonal route controls.
+- Persistent manual relationship routing with four attachment sides per table plus independent horizontal, vertical, and free-movement route controls.
 - Composite primary-key parsing from DBML index blocks.
 - Open-source project governance, contribution guidelines, security policy, and CI.
 

@@ -13,7 +13,7 @@ DBML Diagram is an open-source, offline IntelliJ Platform plugin that shows a re
 - Last valid diagram remains visible while the document contains a parse error.
 - Pan, Ctrl/Cmd + mouse-wheel zoom, Fit, zoom buttons, 100%, and manual Refresh.
 - Drag tables by their headers; personal positions are restored per DBML file.
-- Drag relationship lines to adjust their orthogonal route, or select a line and move either endpoint between the top, right, bottom, and left table anchors.
+- Drag relationship lines to adjust their orthogonal route. A selected route has separate horizontal and vertical handles, while its endpoints can move between the top, right, bottom, and left table anchors.
 - Full-diagram standalone SVG and PNG export. PNG rasterization uses Apache Batik and has a 16,384 px / 40 MP safety limit.
 - PostgreSQL, MySQL, and Oracle DDL export with named primary, unique, and foreign-key constraints, indexes, defaults, comments, and referential actions.
 - Visible `PK`, `FK`, `UNIQ`, and `NOT_NULL` markers on diagram columns.
@@ -90,7 +90,7 @@ Diagram relationships are anchored to their actual columns, drawn from the physi
 
 Drag a table by its header to create a custom layout. Positions are stored in the IDE workspace for that DBML file, survive preview refreshes, and are applied to exported SVG and PNG files. Use **Reset layout** to discard them and return to the automatic layered layout.
 
-Drag a relationship line to move its routing control point. Selecting the line reveals both endpoint handles and all four attachment points on the related tables; drag an endpoint to choose another side. Routes remain attached when either table moves, are stored alongside table positions, and are rendered above table cards with a background halo so arrowheads are not hidden.
+Drag a relationship line or its central handle to move the routing control point freely. Selecting the line also reveals a horizontal handle for moving the route only left/right, a vertical handle for moving it only up/down, both endpoint handles, and all four attachment points on the related tables. Drag an endpoint to choose another side. Routes remain attached when either table moves, are stored alongside table positions, and are rendered above table cards with a background halo so arrowheads are not hidden.
 
 Many-to-many `<>` relationships require an explicit junction table in DBML; the generated SQL includes a comment when such a relationship cannot be represented as a direct foreign key.
 

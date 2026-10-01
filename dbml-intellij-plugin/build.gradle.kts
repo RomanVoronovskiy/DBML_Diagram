@@ -60,7 +60,7 @@ tasks {
               <li>Show PK, FK, UNIQ, and NOT_NULL constraints between column names and types.</li>
               <li>Show directed FK-to-reference arrows with N:1 and 1:1 cardinality labels.</li>
               <li>Drag tables into a custom layout that is retained for SVG and PNG export.</li>
-              <li>Route relationships manually and attach them to any of four table sides.</li>
+              <li>Route relationships horizontally, vertically, or freely and attach them to any of four table sides.</li>
               <li>Preserve reference actions, composite primary keys, and SQL defaults.</li>
             </ul>
         """.trimIndent()
