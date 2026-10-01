@@ -41,7 +41,7 @@ intellijPlatform {
         vendor {
             name = "DBML Diagram Contributors"
         }
-        description = "Offline DBML editor with realtime SVG entity-relationship diagrams and PostgreSQL DDL export."
+        description = "Offline DBML editor with realtime SVG entity-relationship diagrams and PostgreSQL, MySQL, and Oracle DDL export."
     }
     pluginVerification {
         ides {
@@ -56,8 +56,9 @@ tasks {
         changeNotes = """
             <h3>0.2.0</h3>
             <ul>
-              <li>Generate PostgreSQL DDL from the current DBML schema.</li>
-              <li>Show PK, FK, UNIQ, and NOT_NULL constraints directly on diagram columns.</li>
+              <li>Generate PostgreSQL, MySQL, or Oracle DDL from the current DBML schema.</li>
+              <li>Show PK, FK, UNIQ, and NOT_NULL constraints between column names and types.</li>
+              <li>Show directed FK-to-reference arrows with N:1 and 1:1 cardinality labels.</li>
               <li>Preserve reference actions, composite primary keys, and SQL defaults.</li>
             </ul>
         """.trimIndent()

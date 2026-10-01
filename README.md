@@ -13,7 +13,7 @@ DBML Diagram is an open-source, offline IntelliJ Platform plugin that shows a re
 - Last valid diagram remains visible while the document contains a parse error.
 - Pan, Ctrl/Cmd + mouse-wheel zoom, Fit, zoom buttons, 100%, and manual Refresh.
 - Full-diagram standalone SVG and PNG export. PNG rasterization uses Apache Batik and has a 16,384 px / 40 MP safety limit.
-- PostgreSQL DDL export with named primary, unique, and foreign-key constraints, indexes, defaults, comments, and referential actions.
+- PostgreSQL, MySQL, and Oracle DDL export with named primary, unique, and foreign-key constraints, indexes, defaults, comments, and referential actions.
 - Visible `PK`, `FK`, `UNIQ`, and `NOT_NULL` markers on diagram columns.
 - Light and Darcula-aware diagram colors.
 - DBML file type, icon, comments, and basic syntax highlighting.
@@ -57,7 +57,7 @@ dbml-core
 ├── parser      tolerant, IntelliJ-independent DBML parser
 ├── layout      DiagramLayoutEngine + deterministic layered layout
 ├── renderer    DiagramRenderer + standalone SVG renderer
-└── ddl         PostgreSQL DDL generator
+└── ddl         PostgreSQL, MySQL, and Oracle DDL generators
 
 dbml-intellij-plugin
 ├── language    file type, commenter, lexer/highlighter
@@ -75,14 +75,16 @@ The parser never calls the renderer. `DbmlSchema` is immutable and suitable for 
 - Simple and composite `indexes` with `unique` and `name` settings.
 - `Enum` values.
 - `Ref:` and named `Ref { ... }` using `>`, `<`, `-`, and `<>` cardinalities.
-- Reference settings such as `[delete: cascade]` and `[update: no action]` are accepted and included in PostgreSQL DDL exports.
+- Reference settings such as `[delete: cascade]` and `[update: no action]` are accepted and translated where the selected SQL dialect supports them.
 - Inline column `[ref: ...]` references.
 - `//` line comments and `/* ... */` block comments.
 - Warnings for duplicate tables/columns and unknown reference tables/columns.
 
-## PostgreSQL DDL export
+## DDL export
 
-Use **Export DDL** in the diagram toolbar to save the latest valid schema as a `.sql` file. The exporter creates schemas, enums, tables, named primary/unique/foreign-key constraints, indexes, comments, identity columns, defaults, and `ON DELETE`/`ON UPDATE` actions. `Project.database_type: 'PostgreSQL'` is the supported target for this release.
+Choose **PostgreSQL**, **MySQL**, or **Oracle** next to **DDL dialect**, then use **Export DDL** to save the latest valid schema as a `.sql` file. The first selection follows `Project.database_type` when it names a supported dialect. The exporters translate identifiers, types, enum representation, identity/auto-increment syntax, comments, and referential actions for the selected database.
+
+Diagram relationships are anchored to their actual columns, drawn from the physical foreign-key column toward the referenced column, and labelled `N → 1` or `1 → 1`. Column constraints are shown between the column name and SQL type as `PK`, `FK`, `UNIQ`, and `NOT_NULL`.
 
 Many-to-many `<>` relationships require an explicit junction table in DBML; the generated SQL includes a comment when such a relationship cannot be represented as a direct foreign key.
 

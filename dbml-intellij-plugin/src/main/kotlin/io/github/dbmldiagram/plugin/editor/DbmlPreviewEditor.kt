@@ -14,7 +14,7 @@ import com.intellij.ui.jcef.JBCefApp
 import com.intellij.ui.jcef.JBCefBrowser
 import com.intellij.util.ui.JBUI
 import io.github.dbmldiagram.core.layout.LayeredDiagramLayoutEngine
-import io.github.dbmldiagram.core.ddl.PostgreSqlDdlGenerator
+import io.github.dbmldiagram.core.ddl.DdlDialect
 import io.github.dbmldiagram.core.model.DbmlParseError
 import io.github.dbmldiagram.core.model.DbmlSchema
 import io.github.dbmldiagram.core.parser.TolerantDbmlParser
@@ -26,6 +26,7 @@ import java.awt.BorderLayout
 import java.beans.PropertyChangeListener
 import java.beans.PropertyChangeSupport
 import javax.swing.JButton
+import javax.swing.JComboBox
 import javax.swing.JComponent
 import javax.swing.JEditorPane
 import javax.swing.JLabel
@@ -39,6 +40,12 @@ class DbmlPreviewEditor(private val project: Project, private val file: VirtualF
     private val document: Document = requireNotNull(FileDocumentManager.getInstance().getDocument(file)) { "No document for ${file.path}" }
     private var lastValidSvg: String? = null
     private var lastValidSchema: DbmlSchema? = null
+    private val ddlDialect = JComboBox(DdlDialect.values()).apply {
+        selectedItem = DdlDialect.POSTGRESQL
+        toolTipText = "SQL dialect used by DDL export"
+        isFocusable = false
+    }
+    private var ddlDialectInitialized = false
     private var disposed = false
     private val scheduler = DebouncedRenderScheduler(TolerantDbmlParser(), LayeredDiagramLayoutEngine(), SvgDiagramRenderer(), ::showResult)
     private val listener = object : DocumentListener {
@@ -62,7 +69,14 @@ class DbmlPreviewEditor(private val project: Project, private val file: VirtualF
         add(button("100%") { execute("actual()") })
         add(button("+") { execute("zoom(1.25)") })
         add(button("Refresh") { scheduler.renderNow(document.immutableCharSequence.toString()) })
-        add(button("Export DDL") { lastValidSchema?.let { DiagramExporter.exportDdl(project, file, PostgreSqlDdlGenerator().generate(it)) } })
+        add(JLabel("DDL dialect:"))
+        add(ddlDialect)
+        add(button("Export DDL") {
+            val dialect = ddlDialect.selectedItem as DdlDialect
+            lastValidSchema?.let {
+                DiagramExporter.exportDdl(project, file, dialect.displayName, dialect.generator().generate(it))
+            }
+        }.apply { toolTipText = "Export DDL using the selected SQL dialect" })
         add(button("Export SVG") { lastValidSvg?.let { DiagramExporter.exportSvg(project, file, it) } })
         add(button("Export PNG") { lastValidSvg?.let { DiagramExporter.exportPng(project, file, it) } })
         if (browser == null) add(JLabel("JCEF unavailable"))
@@ -75,7 +89,18 @@ class DbmlPreviewEditor(private val project: Project, private val file: VirtualF
 
     private fun showResult(svg: String?, schema: DbmlSchema?, errors: List<DbmlParseError>) {
         if (svg != null) lastValidSvg = svg
-        if (schema != null) lastValidSchema = schema
+        if (schema != null) {
+            lastValidSchema = schema
+            if (!ddlDialectInitialized) {
+                val databaseType = schema.project?.properties?.entries
+                    ?.firstOrNull { it.key.equals("database_type", true) }
+                    ?.value
+                DdlDialect.fromDatabaseType(databaseType)?.let {
+                    ddlDialect.selectedItem = it
+                }
+                ddlDialectInitialized = true
+            }
+        }
         val message = errors.firstOrNull()?.let { "DBML ${it.severity.name.lowercase()}: line ${it.line}: ${it.message}" }
         val html = PreviewHtml.page(lastValidSvg, message, JBColor.isBright().not())
         if (browser != null) browser.loadHTML(html) else fallback.text = "<html><body><b>${message ?: "JCEF is unavailable."}</b><p>The standard code editor remains usable.</p></body></html>"

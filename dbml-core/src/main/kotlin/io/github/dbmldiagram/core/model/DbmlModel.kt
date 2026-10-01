@@ -47,7 +47,23 @@ data class DbmlReference(
     val onDelete: String? = null,
     val onUpdate: String? = null,
     val inline: Boolean = false,
-)
+) {
+    /** Column that owns the physical foreign-key constraint, when the relation maps to one. */
+    fun foreignKeyEndpoint(): DbmlColumnRef? = when (cardinality) {
+        DbmlCardinality.MANY_TO_ONE -> from
+        DbmlCardinality.ONE_TO_MANY -> to
+        DbmlCardinality.ONE_TO_ONE -> if (inline) from else to
+        DbmlCardinality.MANY_TO_MANY -> null
+    }
+
+    /** Column referenced by the physical foreign key, when the relation maps to one. */
+    fun referencedEndpoint(): DbmlColumnRef? = when (cardinality) {
+        DbmlCardinality.MANY_TO_ONE -> to
+        DbmlCardinality.ONE_TO_MANY -> from
+        DbmlCardinality.ONE_TO_ONE -> if (inline) to else from
+        DbmlCardinality.MANY_TO_MANY -> null
+    }
+}
 
 data class DbmlColumnRef(val schema: String? = null, val table: String, val column: String) {
     val tableName: String get() = schema?.let { "$it.$table" } ?: table

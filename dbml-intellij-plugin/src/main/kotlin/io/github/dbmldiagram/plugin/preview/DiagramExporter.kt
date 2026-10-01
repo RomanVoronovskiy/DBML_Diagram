@@ -15,8 +15,8 @@ object DiagramExporter {
     private const val MAX_PIXELS = 40_000_000L
     private const val MAX_DIMENSION = 16_384
 
-    fun exportDdl(project: Project, source: VirtualFile, ddl: String) {
-        val target = choose(project, source, "Export PostgreSQL DDL", "sql") ?: return
+    fun exportDdl(project: Project, source: VirtualFile, dialect: String, ddl: String) {
+        val target = choose(project, source, "Export $dialect DDL", "sql") ?: return
         runCatching { Files.writeString(target, ddl) }.onFailure { showError(project, it) }
     }
 

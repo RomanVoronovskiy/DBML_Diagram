@@ -36,5 +36,9 @@ class SvgDiagramRendererTest {
         assertContains(svg, "UNIQ · NOT_NULL")
         assertContains(svg, "FK · NOT_NULL")
         assertEquals(1, Regex(">FK · NOT_NULL<").findAll(svg).count())
+        assertContains(svg, "marker-end=\"url(#fk-arrow)\"")
+        assertContains(svg, "<title>FK orders.user_id → REF users.id (N:1)</title>")
+        assertContains(svg, ">N</text>")
+        assertContains(svg, ">1</text>")
     }
 }

@@ -1,6 +1,8 @@
 package io.github.dbmldiagram.core.layout
 
+import io.github.dbmldiagram.core.model.DbmlColumnRef
 import io.github.dbmldiagram.core.model.DbmlSchema
+import io.github.dbmldiagram.core.model.DbmlTable
 import kotlin.math.max
 
 /** Deterministic, dependency-free layered layout suitable for offline previews. */
@@ -11,7 +13,10 @@ class LayeredDiagramLayoutEngine : DiagramLayoutEngine {
         val incoming = schema.tables.associate { it.qualifiedName.lowercase() to 0 }.toMutableMap()
         val outgoing = mutableMapOf<String, MutableList<String>>()
         schema.references.forEach { ref ->
-            val from = ref.from.tableName.lowercase(); val to = ref.to.tableName.lowercase()
+            val source = resolveTable(schema, ref.foreignKeyEndpoint() ?: ref.from)
+            val target = resolveTable(schema, ref.referencedEndpoint() ?: ref.to)
+            val from = source?.qualifiedName?.lowercase() ?: return@forEach
+            val to = target?.qualifiedName?.lowercase() ?: return@forEach
             if (from in tablesByName && to in tablesByName && from != to) {
                 outgoing.getOrPut(to) { mutableListOf() } += from
                 incoming[from] = (incoming[from] ?: 0) + 1
@@ -47,10 +52,14 @@ class LayeredDiagramLayoutEngine : DiagramLayoutEngine {
         }
         val nodeMap = nodes.associateBy { it.tableId.lowercase() }
         val edges = schema.references.mapNotNull { ref ->
-            val from = nodeMap[ref.from.tableName.lowercase()] ?: return@mapNotNull null
-            val to = nodeMap[ref.to.tableName.lowercase()] ?: return@mapNotNull null
-            val fromRow = schema.tables.firstOrNull { it.qualifiedName.equals(from.tableId, true) }?.columns?.indexOfFirst { it.name.equals(ref.from.column, true) } ?: -1
-            val toRow = schema.tables.firstOrNull { it.qualifiedName.equals(to.tableId, true) }?.columns?.indexOfFirst { it.name.equals(ref.to.column, true) } ?: -1
+            val fromRef = ref.foreignKeyEndpoint() ?: ref.from
+            val toRef = ref.referencedEndpoint() ?: ref.to
+            val fromTable = resolveTable(schema, fromRef) ?: return@mapNotNull null
+            val toTable = resolveTable(schema, toRef) ?: return@mapNotNull null
+            val from = nodeMap[fromTable.qualifiedName.lowercase()] ?: return@mapNotNull null
+            val to = nodeMap[toTable.qualifiedName.lowercase()] ?: return@mapNotNull null
+            val fromRow = fromTable.columns.indexOfFirst { it.name.equals(fromRef.column, true) }
+            val toRow = toTable.columns.indexOfFirst { it.name.equals(toRef.column, true) }
             val fromY = from.y + if (fromRow >= 0) 48.0 + fromRow * 26.0 + 13.0 else from.height / 2
             val toY = to.y + if (toRow >= 0) 48.0 + toRow * 26.0 + 13.0 else to.height / 2
             val leftToRight = from.x <= to.x
@@ -68,4 +77,10 @@ class LayeredDiagramLayoutEngine : DiagramLayoutEngine {
         val longest = max(name.length + 8, columns.maxOfOrNull { (column, type) -> column.length + type.length + 12 } ?: 0)
         return (longest * 7.4 + 170).coerceIn(360.0, 600.0)
     }
+
+    private fun resolveTable(schema: DbmlSchema, reference: DbmlColumnRef): DbmlTable? =
+        schema.tables.firstOrNull {
+            it.qualifiedName.equals(reference.tableName, true) ||
+                (reference.schema == null && it.alias?.equals(reference.table, true) == true)
+        }
 }
