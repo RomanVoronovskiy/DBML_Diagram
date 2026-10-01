@@ -4,9 +4,20 @@ All notable changes to DBML Diagram are documented in this file. The project fol
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-10-01
+
 ### Added
 
+- PostgreSQL DDL export from the diagram toolbar.
+- Named primary, unique, and foreign-key constraints, indexes, comments, identity columns, defaults, and referential actions in generated DDL.
+- Explicit `PK`, `FK`, `UNIQ`, and `NOT_NULL` column markers in the SVG diagram.
+- Composite primary-key parsing from DBML index blocks.
 - Open-source project governance, contribution guidelines, security policy, and CI.
+
+### Fixed
+
+- Foreign-key markers are now shown only on the referencing side of a relationship.
+- Quoted string defaults and backtick SQL expressions are preserved for DDL generation.
 
 ## [0.1.0] - 2026-09-28
 
@@ -21,5 +32,6 @@ All notable changes to DBML Diagram are documented in this file. The project fol
 - Support for tables, columns, indexes, enums, inline and global references, comments, notes, and common column settings.
 - Reference action parsing for constructs such as `[delete: cascade]`.
 
-[Unreleased]: https://github.com/RomanVoronovskiy/DBML_Diagram/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/RomanVoronovskiy/DBML_Diagram/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/RomanVoronovskiy/DBML_Diagram/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/RomanVoronovskiy/DBML_Diagram/releases/tag/v0.1.0

@@ -66,6 +66,6 @@ class LayeredDiagramLayoutEngine : DiagramLayoutEngine {
 
     private fun tableWidth(name: String, columns: List<Pair<String, String>>): Double {
         val longest = max(name.length + 8, columns.maxOfOrNull { (column, type) -> column.length + type.length + 12 } ?: 0)
-        return (longest * 7.4 + 32).coerceIn(240.0, 480.0)
+        return (longest * 7.4 + 170).coerceIn(360.0, 600.0)
     }
 }

@@ -14,7 +14,9 @@ import com.intellij.ui.jcef.JBCefApp
 import com.intellij.ui.jcef.JBCefBrowser
 import com.intellij.util.ui.JBUI
 import io.github.dbmldiagram.core.layout.LayeredDiagramLayoutEngine
+import io.github.dbmldiagram.core.ddl.PostgreSqlDdlGenerator
 import io.github.dbmldiagram.core.model.DbmlParseError
+import io.github.dbmldiagram.core.model.DbmlSchema
 import io.github.dbmldiagram.core.parser.TolerantDbmlParser
 import io.github.dbmldiagram.core.renderer.SvgDiagramRenderer
 import io.github.dbmldiagram.plugin.preview.DebouncedRenderScheduler
@@ -36,6 +38,7 @@ class DbmlPreviewEditor(private val project: Project, private val file: VirtualF
     private val fallback = JEditorPane("text/html", "JCEF is unavailable in this IDE runtime.").apply { isEditable = false }
     private val document: Document = requireNotNull(FileDocumentManager.getInstance().getDocument(file)) { "No document for ${file.path}" }
     private var lastValidSvg: String? = null
+    private var lastValidSchema: DbmlSchema? = null
     private var disposed = false
     private val scheduler = DebouncedRenderScheduler(TolerantDbmlParser(), LayeredDiagramLayoutEngine(), SvgDiagramRenderer(), ::showResult)
     private val listener = object : DocumentListener {
@@ -59,6 +62,7 @@ class DbmlPreviewEditor(private val project: Project, private val file: VirtualF
         add(button("100%") { execute("actual()") })
         add(button("+") { execute("zoom(1.25)") })
         add(button("Refresh") { scheduler.renderNow(document.immutableCharSequence.toString()) })
+        add(button("Export DDL") { lastValidSchema?.let { DiagramExporter.exportDdl(project, file, PostgreSqlDdlGenerator().generate(it)) } })
         add(button("Export SVG") { lastValidSvg?.let { DiagramExporter.exportSvg(project, file, it) } })
         add(button("Export PNG") { lastValidSvg?.let { DiagramExporter.exportPng(project, file, it) } })
         if (browser == null) add(JLabel("JCEF unavailable"))
@@ -69,8 +73,9 @@ class DbmlPreviewEditor(private val project: Project, private val file: VirtualF
         addActionListener { action() }
     }
 
-    private fun showResult(svg: String?, errors: List<DbmlParseError>) {
+    private fun showResult(svg: String?, schema: DbmlSchema?, errors: List<DbmlParseError>) {
         if (svg != null) lastValidSvg = svg
+        if (schema != null) lastValidSchema = schema
         val message = errors.firstOrNull()?.let { "DBML ${it.severity.name.lowercase()}: line ${it.line}: ${it.message}" }
         val html = PreviewHtml.page(lastValidSvg, message, JBColor.isBright().not())
         if (browser != null) browser.loadHTML(html) else fallback.text = "<html><body><b>${message ?: "JCEF is unavailable."}</b><p>The standard code editor remains usable.</p></body></html>"

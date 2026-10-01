@@ -6,6 +6,7 @@ import com.intellij.openapi.diagnostic.Logger
 import com.intellij.util.concurrency.AppExecutorUtil
 import io.github.dbmldiagram.core.layout.DiagramLayoutEngine
 import io.github.dbmldiagram.core.model.DbmlParseError
+import io.github.dbmldiagram.core.model.DbmlSchema
 import io.github.dbmldiagram.core.parser.DbmlParser
 import io.github.dbmldiagram.core.renderer.DiagramRenderer
 import java.util.concurrent.ScheduledFuture
@@ -20,7 +21,7 @@ class DebouncedRenderScheduler(
     private val parser: DbmlParser,
     private val layoutEngine: DiagramLayoutEngine,
     private val renderer: DiagramRenderer,
-    private val callback: (String?, List<DbmlParseError>) -> Unit,
+    private val callback: (String?, DbmlSchema?, List<DbmlParseError>) -> Unit,
 ) : RenderScheduler {
     private val log = Logger.getInstance(DebouncedRenderScheduler::class.java)
     private val executor = AppExecutorUtil.createBoundedScheduledExecutorService("DBML diagram renderer", 1)
@@ -58,12 +59,12 @@ class DebouncedRenderScheduler(
             log.debug("DBML render timings: parse=${parseMs}ms layout=${layoutMs}ms render=${renderMs}ms")
             val rendered = svg
             ApplicationManager.getApplication().invokeLater {
-                if (!disposed) callback(rendered, result.errors)
+                if (!disposed) callback(rendered, if (rendered != null) schema else null, result.errors)
             }
         } catch (t: Throwable) {
             log.warn("DBML preview render failed", t)
             ApplicationManager.getApplication().invokeLater {
-                if (!disposed) callback(null, listOf(DbmlParseError("Preview failed: ${t.message ?: t.javaClass.simpleName}", 1, 1, io.github.dbmldiagram.core.model.DbmlParseSeverity.ERROR)))
+                if (!disposed) callback(null, null, listOf(DbmlParseError("Preview failed: ${t.message ?: t.javaClass.simpleName}", 1, 1, io.github.dbmldiagram.core.model.DbmlParseSeverity.ERROR)))
             }
         }
     }

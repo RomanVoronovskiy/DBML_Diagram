@@ -2,7 +2,7 @@
     <id>io.github.dbmldiagram</id>
     <name>DBML Diagram</name>
     <vendor>DBML Diagram Contributors</vendor>
-    <description><![CDATA[Offline DBML editor with realtime SVG entity-relationship diagram preview.]]></description>
+    <description><![CDATA[Offline DBML editor with realtime SVG entity-relationship diagram preview and PostgreSQL DDL export.]]></description>
     <depends>com.intellij.modules.platform</depends>
 
     <extensions defaultExtensionNs="com.intellij">

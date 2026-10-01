@@ -31,7 +31,12 @@ data class DbmlColumn(
     val note: String? = null,
 )
 
-data class DbmlIndex(val columns: List<String>, val unique: Boolean = false, val name: String? = null)
+data class DbmlIndex(
+    val columns: List<String>,
+    val unique: Boolean = false,
+    val primaryKey: Boolean = false,
+    val name: String? = null,
+)
 data class DbmlEnum(val name: String, val values: List<String>)
 
 data class DbmlReference(
@@ -39,6 +44,9 @@ data class DbmlReference(
     val to: DbmlColumnRef,
     val cardinality: DbmlCardinality,
     val name: String? = null,
+    val onDelete: String? = null,
+    val onUpdate: String? = null,
+    val inline: Boolean = false,
 )
 
 data class DbmlColumnRef(val schema: String? = null, val table: String, val column: String) {

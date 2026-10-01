@@ -13,6 +13,8 @@ DBML Diagram is an open-source, offline IntelliJ Platform plugin that shows a re
 - Last valid diagram remains visible while the document contains a parse error.
 - Pan, Ctrl/Cmd + mouse-wheel zoom, Fit, zoom buttons, 100%, and manual Refresh.
 - Full-diagram standalone SVG and PNG export. PNG rasterization uses Apache Batik and has a 16,384 px / 40 MP safety limit.
+- PostgreSQL DDL export with named primary, unique, and foreign-key constraints, indexes, defaults, comments, and referential actions.
+- Visible `PK`, `FK`, `UNIQ`, and `NOT_NULL` markers on diagram columns.
 - Light and Darcula-aware diagram colors.
 - DBML file type, icon, comments, and basic syntax highlighting.
 - No browser window, network service, Node.js, database, CLI, or external executable is used at runtime.
@@ -54,7 +56,8 @@ dbml-core
 ├── model       immutable schema and diagnostics
 ├── parser      tolerant, IntelliJ-independent DBML parser
 ├── layout      DiagramLayoutEngine + deterministic layered layout
-└── renderer    DiagramRenderer + standalone SVG renderer
+├── renderer    DiagramRenderer + standalone SVG renderer
+└── ddl         PostgreSQL DDL generator
 
 dbml-intellij-plugin
 ├── language    file type, commenter, lexer/highlighter
@@ -72,16 +75,22 @@ The parser never calls the renderer. `DbmlSchema` is immutable and suitable for 
 - Simple and composite `indexes` with `unique` and `name` settings.
 - `Enum` values.
 - `Ref:` and named `Ref { ... }` using `>`, `<`, `-`, and `<>` cardinalities.
-- Reference settings such as `[delete: cascade]` and `[update: no action]` are accepted.
+- Reference settings such as `[delete: cascade]` and `[update: no action]` are accepted and included in PostgreSQL DDL exports.
 - Inline column `[ref: ...]` references.
 - `//` line comments and `/* ... */` block comments.
 - Warnings for duplicate tables/columns and unknown reference tables/columns.
+
+## PostgreSQL DDL export
+
+Use **Export DDL** in the diagram toolbar to save the latest valid schema as a `.sql` file. The exporter creates schemas, enums, tables, named primary/unique/foreign-key constraints, indexes, comments, identity columns, defaults, and `ON DELETE`/`ON UPDATE` actions. `Project.database_type: 'PostgreSQL'` is the supported target for this release.
+
+Many-to-many `<>` relationships require an explicit junction table in DBML; the generated SQL includes a comment when such a relationship cannot be represented as a direct foreign key.
 
 ## Known limitations
 
 - This is a tolerant subset parser, not a complete DBML grammar or PSI implementation.
 - The built-in layered layout is deterministic and fast, but does not perform advanced edge crossing minimization for very dense cyclic schemas.
-- Relationship settings such as referential actions are currently ignored.
+- Visualization-only relationship settings such as colors are currently ignored.
 - JCEF must be enabled in the host IDE for the visual preview; the code editor remains available if JCEF is unavailable.
 - Syntax highlighting is lexical only; navigation, completion, inspections, and refactoring are not included.
 - A temporarily incomplete custom type is accepted when it is syntactically a valid type token; an unclosed block/settings/string is reported as an error.
