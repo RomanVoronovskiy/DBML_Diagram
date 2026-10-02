@@ -41,31 +41,7 @@ intellijPlatform {
         vendor {
             name = "DBML Diagram Contributors"
         }
-        description = """
-            <p>
-              Edit DBML files and visualize database schemas as interactive ER diagrams directly in your IDE.
-            </p>
-
-            <p>
-              <b>DBML Diagram</b> provides realtime database schema visualization for <code>.dbml</code> files using the standard IntelliJ editor workflow.
-            </p>
-
-            <ul>
-              <li>Realtime ER diagram preview while editing DBML</li>
-              <li>Code, Preview, and Code + Preview modes</li>
-              <li>Pan, zoom, Fit, 100%, and Refresh controls</li>
-              <li>SVG and PNG diagram export</li>
-              <li>DBML syntax highlighting</li>
-              <li>Error-tolerant preview that keeps the last valid diagram visible</li>
-              <li>Light and dark IDE theme support</li>
-              <li>Fully offline runtime with no external services or tools</li>
-            </ul>
-
-            <p>
-              Use DBML Diagram to keep database schemas together with your source code,
-              review schema changes, and maintain DBML files directly inside IntelliJ Platform IDEs.
-            </p>
-        """.trimIndent()
+        description = file("marketplace/description.html").readText()
     }
     pluginVerification {
         ides {
