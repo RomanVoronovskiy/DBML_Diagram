@@ -18,8 +18,8 @@ repositories {
 
 dependencies {
     implementation(project(":dbml-core"))
-    implementation("org.apache.xmlgraphics:batik-transcoder:1.17")
-    implementation("org.apache.xmlgraphics:batik-codec:1.17")
+    implementation("org.apache.xmlgraphics:batik-transcoder:1.19")
+    implementation("org.apache.xmlgraphics:batik-codec:1.19")
     testImplementation("junit:junit:4.13.2")
 
     intellijPlatform {
