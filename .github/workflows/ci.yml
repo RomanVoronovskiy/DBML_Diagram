@@ -30,8 +30,8 @@ jobs:
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v6
 
-      - name: Test and build plugin
-        run: ./gradlew test buildPlugin --stacktrace
+      - name: Test, build, and verify plugin
+        run: ./gradlew test :dbml-intellij-plugin:verifyPlugin --stacktrace
 
       - name: Upload installable plugin
         uses: actions/upload-artifact@v7

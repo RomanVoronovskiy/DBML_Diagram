@@ -11,7 +11,7 @@ class TolerantDbmlParser : DbmlParser {
 }
 
 private enum class Kind { WORD, STRING, SYMBOL, NEWLINE, EOF }
-private data class Token(val kind: Kind, val text: String, val line: Int, val column: Int)
+private data class Token(val kind: Kind, val text: String, val line: Int, val column: Int, val quote: Char? = null)
 
 private class Lexer(private val source: String) {
     val errors = mutableListOf<DbmlParseError>()
@@ -63,7 +63,7 @@ private class Lexer(private val source: String) {
         }
         if (offset >= source.length) errors += DbmlParseError("Unterminated quoted value", startLine, startColumn, DbmlParseSeverity.ERROR)
         else advance()
-        tokens += Token(Kind.STRING, value.toString(), startLine, startColumn)
+        tokens += Token(Kind.STRING, value.toString(), startLine, startColumn, quote)
     }
     private fun word() {
         val start = offset; val startColumn = column
@@ -161,7 +161,7 @@ private class Parser(private val tokens: List<Token>, initialErrors: List<DbmlPa
         val column = DbmlColumn(
             name = name, type = type.ifBlank { "?" }, primaryKey = primaryKey,
             nullable = explicitlyNull || !notNull, unique = hasSetting(settings, "unique"),
-            increment = hasSetting(settings, "increment"), defaultValue = settingValue(settings, "default"),
+            increment = hasSetting(settings, "increment"), defaultValue = defaultValue(settings),
             note = settingValue(settings, "note"),
         )
         if (existing.any { it.name.equals(name, true) }) warning("Duplicate column '$name' in table '${table.second}'", start)
@@ -180,7 +180,12 @@ private class Parser(private val tokens: List<Token>, initialErrors: List<DbmlPa
             val expression = if (settingsStart >= 0) line.take(settingsStart) else line
             val settings = if (settingsStart >= 0) line.drop(settingsStart + 1).dropLastWhile { it.text == "]" } else emptyList()
             val names = expression.filter { it.kind == Kind.WORD || it.kind == Kind.STRING }.map { it.text }
-            if (names.isNotEmpty()) result += DbmlIndex(names, hasSetting(settings, "unique"), settingValue(settings, "name"))
+            if (names.isNotEmpty()) result += DbmlIndex(
+                columns = names,
+                unique = hasSetting(settings, "unique"),
+                primaryKey = hasSetting(settings, "pk") || hasSetting(settings, "primary key"),
+                name = settingValue(settings, "name"),
+            )
         }
         closeBlock("indexes")
         return result
@@ -215,10 +220,13 @@ private class Parser(private val tokens: List<Token>, initialErrors: List<DbmlPa
     }
 
     private fun parseReferenceExpression(name: String?, expression: List<Token>): DbmlReference? {
-        // Reference actions (`[delete: cascade, update: no action]`) describe the
-        // relation, not its right endpoint. They are intentionally ignored by the
-        // MVP model, but must not make an otherwise valid reference fail parsing.
-        val endpoints = expression.takeWhile { it.text != "[" }
+        val settingsStart = expression.indexOfFirst { it.text == "[" }
+        val endpoints = if (settingsStart >= 0) expression.take(settingsStart) else expression
+        val settings = if (settingsStart >= 0) {
+            expression.drop(settingsStart + 1).dropLastWhile { it.text == "]" }
+        } else {
+            emptyList()
+        }
         val opIndex = endpoints.indexOfFirst { it.text in setOf(">", "<", "-", "<>") }
         if (opIndex < 0) { endpoints.firstOrNull()?.let { error("Reference operator is missing", it) }; return null }
         val left = parseColumnRef(endpoints.take(opIndex))
@@ -230,7 +238,14 @@ private class Parser(private val tokens: List<Token>, initialErrors: List<DbmlPa
             "-" -> DbmlCardinality.ONE_TO_ONE
             else -> DbmlCardinality.MANY_TO_MANY
         }
-        return DbmlReference(left, right, cardinality, name)
+        return DbmlReference(
+            from = left,
+            to = right,
+            cardinality = cardinality,
+            name = name,
+            onDelete = settingValue(settings, "delete"),
+            onUpdate = settingValue(settings, "update"),
+        )
     }
 
     private fun parseInlineReference(settings: List<Token>, table: Pair<String?, String>, column: String): DbmlReference? {
@@ -247,7 +262,14 @@ private class Parser(private val tokens: List<Token>, initialErrors: List<DbmlPa
             "-" -> DbmlCardinality.ONE_TO_ONE
             else -> DbmlCardinality.MANY_TO_MANY
         }
-        return DbmlReference(source, target, cardinality)
+        return DbmlReference(
+            from = source,
+            to = target,
+            cardinality = cardinality,
+            onDelete = settingValue(settings, "delete"),
+            onUpdate = settingValue(settings, "update"),
+            inline = true,
+        )
     }
 
     private fun parseColumnRef(tokens: List<Token>): DbmlColumnRef? {
@@ -297,7 +319,7 @@ private class Parser(private val tokens: List<Token>, initialErrors: List<DbmlPa
 
     private fun compact(items: List<Token>): String = buildString {
         items.forEachIndexed { index, token ->
-            if (index > 0 && token.text !in setOf(")", ",") && items[index - 1].text !in setOf("(", ".")) append(' ')
+            if (index > 0 && token.text !in setOf("(", ")", ",") && items[index - 1].text !in setOf("(", ".")) append(' ')
             append(token.text)
         }
     }.replace(" ,", ",")
@@ -318,6 +340,26 @@ private class Parser(private val tokens: List<Token>, initialErrors: List<DbmlPa
         val colon = segment.indexOfFirst { it.text == ":" }
         if (colon > 0 && segment.take(colon).joinToString(" ") { it.text }.trim().equals(key, true))
             compact(segment.drop(colon + 1)).trim().ifBlank { null } else null
+    }
+
+    private fun defaultValue(items: List<Token>): String? {
+        val segment = settingSegments(items).firstOrNull { candidate ->
+            val colon = candidate.indexOfFirst { it.text == ":" }
+            colon > 0 && candidate.take(colon).joinToString(" ") { it.text }.trim().equals("default", true)
+        } ?: return null
+        val colon = segment.indexOfFirst { it.text == ":" }
+        val valueTokens = segment.drop(colon + 1)
+        if (valueTokens.isEmpty()) return null
+        return buildString {
+            valueTokens.forEachIndexed { index, token ->
+                if (index > 0 && token.text !in setOf(")", ",") && valueTokens[index - 1].text !in setOf("(", ".")) append(' ')
+                when (token.quote) {
+                    '`' -> append(token.text)
+                    '\'', '"' -> append('\'').append(token.text.replace("'", "''")).append('\'')
+                    else -> append(token.text)
+                }
+            }
+        }.trim().ifBlank { null }
     }
 
     private fun collectLine(stopAtBrace: Boolean = false): List<Token> {

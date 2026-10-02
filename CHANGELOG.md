@@ -4,9 +4,25 @@ All notable changes to DBML Diagram are documented in this file. The project fol
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-10-01
+
 ### Added
 
+- PostgreSQL, MySQL, and Oracle DDL export with an explicit dialect selector in the diagram toolbar.
+- Named primary, unique, and foreign-key constraints, indexes, comments, identity columns, defaults, and referential actions in generated DDL.
+- Explicit `PK`, `FK`, `UNIQ`, and `NOT_NULL` column markers in the SVG diagram.
+- Directed FK-to-referenced-column relationship arrows with `N:1` and `1:1` endpoint labels.
+- Draggable tables with per-file workspace persistence and custom-layout SVG/PNG export.
+- Persistent manual relationship routing with four attachment sides per table plus independent horizontal, vertical, and free-movement route controls.
+- Composite primary-key parsing from DBML index blocks.
 - Open-source project governance, contribution guidelines, security policy, and CI.
+
+### Fixed
+
+- Foreign-key markers are now shown only on the referencing side of a relationship.
+- Constraint markers now use the space between column names and SQL types.
+- Relationship lines and arrowheads now render on a foreground layer instead of disappearing behind table cards.
+- Quoted string defaults and backtick SQL expressions are preserved for DDL generation.
 
 ## [0.1.0] - 2026-09-28
 
@@ -21,5 +37,6 @@ All notable changes to DBML Diagram are documented in this file. The project fol
 - Support for tables, columns, indexes, enums, inline and global references, comments, notes, and common column settings.
 - Reference action parsing for constructs such as `[delete: cascade]`.
 
-[Unreleased]: https://github.com/RomanVoronovskiy/DBML_Diagram/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/RomanVoronovskiy/DBML_Diagram/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/RomanVoronovskiy/DBML_Diagram/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/RomanVoronovskiy/DBML_Diagram/releases/tag/v0.1.0

@@ -1,17 +1,26 @@
 package io.github.dbmldiagram.core.layout
 
+import io.github.dbmldiagram.core.model.DbmlColumnRef
 import io.github.dbmldiagram.core.model.DbmlSchema
+import io.github.dbmldiagram.core.model.DbmlTable
+import kotlin.math.abs
 import kotlin.math.max
 
 /** Deterministic, dependency-free layered layout suitable for offline previews. */
-class LayeredDiagramLayoutEngine : DiagramLayoutEngine {
+class LayeredDiagramLayoutEngine(
+    private val manualPositions: Map<String, DiagramPoint> = emptyMap(),
+    private val manualRoutes: Map<String, ManualRelationRoute> = emptyMap(),
+) : DiagramLayoutEngine {
     override fun layout(schema: DbmlSchema): DiagramLayout {
         if (schema.tables.isEmpty()) return DiagramLayout(emptyList(), emptyList(), 640.0, 360.0)
         val tablesByName = schema.tables.associateBy { it.qualifiedName.lowercase() }
         val incoming = schema.tables.associate { it.qualifiedName.lowercase() to 0 }.toMutableMap()
         val outgoing = mutableMapOf<String, MutableList<String>>()
         schema.references.forEach { ref ->
-            val from = ref.from.tableName.lowercase(); val to = ref.to.tableName.lowercase()
+            val source = resolveTable(schema, ref.foreignKeyEndpoint() ?: ref.from)
+            val target = resolveTable(schema, ref.referencedEndpoint() ?: ref.to)
+            val from = source?.qualifiedName?.lowercase() ?: return@forEach
+            val to = target?.qualifiedName?.lowercase() ?: return@forEach
             if (from in tablesByName && to in tablesByName && from != to) {
                 outgoing.getOrPut(to) { mutableListOf() } += from
                 incoming[from] = (incoming[from] ?: 0) + 1
@@ -45,27 +54,107 @@ class LayeredDiagramLayoutEngine : DiagramLayoutEngine {
             }
             x += columnWidth + horizontalGap
         }
-        val nodeMap = nodes.associateBy { it.tableId.lowercase() }
-        val edges = schema.references.mapNotNull { ref ->
-            val from = nodeMap[ref.from.tableName.lowercase()] ?: return@mapNotNull null
-            val to = nodeMap[ref.to.tableName.lowercase()] ?: return@mapNotNull null
-            val fromRow = schema.tables.firstOrNull { it.qualifiedName.equals(from.tableId, true) }?.columns?.indexOfFirst { it.name.equals(ref.from.column, true) } ?: -1
-            val toRow = schema.tables.firstOrNull { it.qualifiedName.equals(to.tableId, true) }?.columns?.indexOfFirst { it.name.equals(ref.to.column, true) } ?: -1
-            val fromY = from.y + if (fromRow >= 0) 48.0 + fromRow * 26.0 + 13.0 else from.height / 2
-            val toY = to.y + if (toRow >= 0) 48.0 + toRow * 26.0 + 13.0 else to.height / 2
-            val leftToRight = from.x <= to.x
-            val p1 = DiagramPoint(if (leftToRight) from.x + from.width else from.x, fromY)
-            val p4 = DiagramPoint(if (leftToRight) to.x else to.x + to.width, toY)
-            val middleX = (p1.x + p4.x) / 2
-            RelationEdge(ref, listOf(p1, DiagramPoint(middleX, p1.y), DiagramPoint(middleX, p4.y), p4))
+        val positionsByTable = manualPositions.entries.associate { it.key.lowercase() to it.value }
+        val positionedNodes = nodes.map { node ->
+            positionsByTable[node.tableId.lowercase()]?.let { position ->
+                node.copy(x = position.x.coerceAtLeast(margin), y = position.y.coerceAtLeast(margin))
+            } ?: node
         }
-        val width = max(640.0, nodes.maxOf { it.x + it.width } + margin)
-        val height = max(360.0, nodes.maxOf { it.y + it.height } + margin)
-        return DiagramLayout(nodes, edges, width, height)
+        val nodeMap = positionedNodes.associateBy { it.tableId.lowercase() }
+        val edges = schema.references.mapNotNull { ref ->
+            val fromRef = ref.foreignKeyEndpoint() ?: ref.from
+            val toRef = ref.referencedEndpoint() ?: ref.to
+            val fromTable = resolveTable(schema, fromRef) ?: return@mapNotNull null
+            val toTable = resolveTable(schema, toRef) ?: return@mapNotNull null
+            val from = nodeMap[fromTable.qualifiedName.lowercase()] ?: return@mapNotNull null
+            val to = nodeMap[toTable.qualifiedName.lowercase()] ?: return@mapNotNull null
+            val defaultSides = defaultSides(from, to)
+            val manual = manualRoutes[ref.routeId()]
+            val fromSide = manual?.fromSide ?: defaultSides.first
+            val toSide = manual?.toSide ?: defaultSides.second
+            val start = anchor(from, fromSide)
+            val end = anchor(to, toSide)
+            val startExit = exit(start, fromSide)
+            val endExit = exit(end, toSide)
+            val control = manual?.control ?: DiagramPoint(
+                (startExit.x + endExit.x) / 2,
+                (startExit.y + endExit.y) / 2,
+            )
+            val points = (listOf(start) + routeLeg(startExit, fromSide, control) +
+                routeLeg(endExit, toSide, control).reversed() + end).removeConsecutiveDuplicates()
+            RelationEdge(
+                ref,
+                points,
+                fromTable.qualifiedName,
+                toTable.qualifiedName,
+                fromSide,
+                toSide,
+                control,
+            )
+        }
+        val routePoints = edges.flatMap { it.points }
+        val width = max(640.0, max(positionedNodes.maxOf { it.x + it.width }, routePoints.maxOfOrNull { it.x } ?: 0.0) + margin)
+        val height = max(360.0, max(positionedNodes.maxOf { it.y + it.height }, routePoints.maxOfOrNull { it.y } ?: 0.0) + margin)
+        return DiagramLayout(positionedNodes, edges, width, height)
     }
 
     private fun tableWidth(name: String, columns: List<Pair<String, String>>): Double {
         val longest = max(name.length + 8, columns.maxOfOrNull { (column, type) -> column.length + type.length + 12 } ?: 0)
-        return (longest * 7.4 + 32).coerceIn(240.0, 480.0)
+        return (longest * 7.4 + 170).coerceIn(360.0, 600.0)
     }
+
+    private fun resolveTable(schema: DbmlSchema, reference: DbmlColumnRef): DbmlTable? =
+        schema.tables.firstOrNull {
+            it.qualifiedName.equals(reference.tableName, true) ||
+                (reference.schema == null && it.alias?.equals(reference.table, true) == true)
+        }
+
+    private fun defaultSides(from: TableNode, to: TableNode): Pair<TableSide, TableSide> {
+        val dx = (to.x + to.width / 2) - (from.x + from.width / 2)
+        val dy = (to.y + to.height / 2) - (from.y + from.height / 2)
+        return if (abs(dx) >= abs(dy)) {
+            if (dx >= 0) TableSide.RIGHT to TableSide.LEFT else TableSide.LEFT to TableSide.RIGHT
+        } else {
+            if (dy >= 0) TableSide.BOTTOM to TableSide.TOP else TableSide.TOP to TableSide.BOTTOM
+        }
+    }
+
+    private fun anchor(node: TableNode, side: TableSide): DiagramPoint = when (side) {
+        TableSide.TOP -> DiagramPoint(node.x + node.width / 2, node.y)
+        TableSide.RIGHT -> DiagramPoint(node.x + node.width, node.y + node.height / 2)
+        TableSide.BOTTOM -> DiagramPoint(node.x + node.width / 2, node.y + node.height)
+        TableSide.LEFT -> DiagramPoint(node.x, node.y + node.height / 2)
+    }
+
+    private fun exit(point: DiagramPoint, side: TableSide, distance: Double = 24.0): DiagramPoint = when (side) {
+        TableSide.TOP -> point.copy(y = point.y - distance)
+        TableSide.RIGHT -> point.copy(x = point.x + distance)
+        TableSide.BOTTOM -> point.copy(y = point.y + distance)
+        TableSide.LEFT -> point.copy(x = point.x - distance)
+    }
+
+    private fun routeLeg(exit: DiagramPoint, side: TableSide, control: DiagramPoint): List<DiagramPoint> = when (side) {
+        TableSide.RIGHT -> {
+            val safeX = max(exit.x, control.x)
+            listOf(exit, DiagramPoint(safeX, exit.y), DiagramPoint(safeX, control.y), control)
+        }
+        TableSide.LEFT -> {
+            val safeX = minOf(exit.x, control.x)
+            listOf(exit, DiagramPoint(safeX, exit.y), DiagramPoint(safeX, control.y), control)
+        }
+        TableSide.BOTTOM -> {
+            val safeY = max(exit.y, control.y)
+            listOf(exit, DiagramPoint(exit.x, safeY), DiagramPoint(control.x, safeY), control)
+        }
+        TableSide.TOP -> {
+            val safeY = minOf(exit.y, control.y)
+            listOf(exit, DiagramPoint(exit.x, safeY), DiagramPoint(control.x, safeY), control)
+        }
+    }
+
+    private fun List<DiagramPoint>.removeConsecutiveDuplicates(): List<DiagramPoint> =
+        fold(mutableListOf()) { result, point ->
+            if (result.lastOrNull() != point) result += point
+            result
+        }
 }

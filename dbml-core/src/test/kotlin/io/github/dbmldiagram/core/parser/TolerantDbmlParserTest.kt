@@ -29,6 +29,7 @@ class TolerantDbmlParserTest {
         assertEquals("People", table.note)
         assertTrue(table.columns[0].primaryKey)
         assertTrue(table.columns[0].increment)
+        assertEquals("varchar(255)", table.columns[1].type)
         assertFalse(table.columns[1].nullable)
         assertTrue(table.columns[1].unique)
         assertEquals("Login", table.columns[1].note)
@@ -108,6 +109,31 @@ class TolerantDbmlParserTest {
         val reference = result.schema!!.references.single()
         assertEquals("wall_contour", reference.from.table)
         assertEquals("dataset_id", reference.to.column)
+        assertEquals("cascade", reference.onDelete)
+        assertEquals("no action", reference.onUpdate)
+    }
+
+    @Test fun `preserves SQL string and expression defaults`() {
+        val columns = parser.parse("""
+            Table users {
+              name text [default: 'guest']
+              created_at timestamptz [default: `now()`]
+            }
+        """.trimIndent()).schema!!.tables.single().columns
+        assertEquals("'guest'", columns[0].defaultValue)
+        assertEquals("now()", columns[1].defaultValue)
+    }
+
+    @Test fun `composite primary key index is retained`() {
+        val index = parser.parse("""
+            Table memberships {
+              user_id uuid
+              group_id uuid
+              indexes { (user_id, group_id) [pk] }
+            }
+        """.trimIndent()).schema!!.tables.single().indexes.single()
+        assertTrue(index.primaryKey)
+        assertEquals(listOf("user_id", "group_id"), index.columns)
     }
 
     @Test fun `malformed and partially typed DBML return errors instead of throwing`() {
