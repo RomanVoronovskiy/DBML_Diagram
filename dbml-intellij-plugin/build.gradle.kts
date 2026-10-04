@@ -16,6 +16,13 @@ repositories {
     }
 }
 
+configurations.configureEach {
+    // The JDK/IDE owns JAXP and core DOM classes. Bundling their old copies causes
+    // SAXParserFactory ClassCastException in IntelliJ's plugin classloader.
+    // Keep xml-apis-ext: Batik still needs its SVG-specific DOM interfaces.
+    exclude(group = "xml-apis", module = "xml-apis")
+}
+
 dependencies {
     implementation(project(":dbml-core"))
     implementation("org.apache.xmlgraphics:batik-transcoder:1.17")
@@ -47,6 +54,7 @@ intellijPlatform {
         ides {
             ide(IntelliJPlatformType.IntellijIdeaCommunity, "2024.1.7")
             ide(IntelliJPlatformType.IntellijIdeaCommunity, "2025.2.6")
+            providers.gradleProperty("verifyLocalIde").orNull?.let { local(file(it)) }
         }
     }
 }
@@ -54,6 +62,25 @@ intellijPlatform {
 tasks {
     patchPluginXml {
         changeNotes = """
+            <h3>0.3.0</h3>
+            <ul>
+              <li>Reroute relationship lines around tables during dragging and in SVG/PNG export.</li>
+              <li>Choose attachment sides by dragging endpoints or clicking table-side anchors.</li>
+              <li>Keep all export buttons visible by wrapping the toolbar in narrow preview panels.</li>
+              <li>Validate references with editor and diagram errors; fix packaged PNG XML dependencies.</li>
+            </ul>
+            <h3>0.2.2</h3>
+            <ul>
+              <li>Anchor relationship lines to the actual referenced and foreign-key column rows, including after dragging tables.</li>
+              <li>Fix PNG export in installed IDEs by removing conflicting bundled JAXP classes.</li>
+            </ul>
+            <h3>0.2.1</h3>
+            <ul>
+              <li>Validate relationship cardinality, unique keys, endpoints, and compatible column types.</li>
+              <li>Underline invalid references in the editor and highlight them in red on the diagram.</li>
+              <li>Block exports until errors in the current document are fixed.</li>
+              <li>Fix PNG rasterization of theme colors and relationship hit areas; export in the background without corrupting existing files on failure.</li>
+            </ul>
             <h3>0.2.0</h3>
             <ul>
               <li>Generate PostgreSQL, MySQL, or Oracle DDL from the current DBML schema.</li>
@@ -65,4 +92,17 @@ tasks {
             </ul>
         """.trimIndent()
     }
+}
+
+tasks.test {
+    systemProperty("dbml.preview.fixture", layout.buildDirectory.file("reports/preview-fixture.html").get().asFile.absolutePath)
+}
+
+tasks.register<Test>("testPackagedPlugin") {
+    description = "Rasterize PNG through an isolated classloader using libraries from the distributable ZIP."
+    dependsOn(tasks.buildPlugin, tasks.testClasses)
+    testClassesDirs = sourceSets.test.get().output.classesDirs
+    classpath = sourceSets.test.get().runtimeClasspath
+    filter { includeTestsMatching("*PackagedPluginPngTest") }
+    doFirst { systemProperty("dbml.plugin.zip", tasks.buildPlugin.get().archiveFile.get().asFile.absolutePath) }
 }

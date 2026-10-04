@@ -7,6 +7,8 @@
     <extensions defaultExtensionNs="com.intellij">
         <fileType name="DBML" language="DBML" implementationClass="io.github.dbmldiagram.plugin.language.DbmlFileType" extensions="dbml"/>
         <lang.syntaxHighlighterFactory language="DBML" implementationClass="io.github.dbmldiagram.plugin.language.DbmlSyntaxHighlighterFactory"/>
+        <lang.parserDefinition language="DBML" implementationClass="io.github.dbmldiagram.plugin.language.DbmlParserDefinition"/>
+        <externalAnnotator language="DBML" implementationClass="io.github.dbmldiagram.plugin.language.DbmlExternalAnnotator"/>
         <lang.commenter language="DBML" implementationClass="io.github.dbmldiagram.plugin.language.DbmlCommenter"/>
         <fileEditorProvider implementation="io.github.dbmldiagram.plugin.editor.DbmlFileEditorProvider"/>
     </extensions>

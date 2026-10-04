@@ -1,0 +1,11 @@
+Table users {
+  id uuid [pk]
+  email varchar(255)
+}
+
+Table orders {
+  id uuid [pk]
+  user_id uuid
+}
+
+Ref: orders.id > users.id

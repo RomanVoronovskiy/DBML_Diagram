@@ -4,6 +4,29 @@ All notable changes to DBML Diagram are documented in this file. The project fol
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-10-04
+
+### Added
+
+- Relationship validation for 1:1, 1:N/N:1, and conceptual N:N relations, including standalone and inline references.
+- Editor error underlines at the reference source range, red invalid relationship/column highlighting, and detailed preview diagnostics.
+- Export guards that validate the current document rather than exporting a stale valid preview.
+
+### Fixed
+
+- Relationships reroute around table cards during dragging, refresh, and SVG/PNG export; control points inside cards are moved to a safe position.
+- Attachment anchors are now clickable, endpoint hit areas are larger, and drag completion is handled at window level.
+- Selection clicks no longer save a route or reload the preview; clicking an unselected arrowhead grabs its endpoint, and edited relationships retain their selection after refresh.
+- Repeated table drags retain the accumulated translation, keeping the card and relationship endpoints aligned.
+- The toolbar reports its wrapped height, keeping PNG and other export buttons visible in narrow preview panes.
+- Relationship endpoints on left/right table sides now align with the actual FK/referenced column rows, including live dragging, snap points, and exported diagrams.
+- PNG distributions no longer bundle legacy JAXP classes (`xml-apis`) that conflict with IntelliJ's XML parser classloader; an isolated packaged-ZIP rasterization smoke test covers this regression.
+- PNG export now resolves SVG CSS variables and unsupported transparent strokes before Apache Batik rasterization.
+- PNG export runs in the background, validates dimensions before allocating an image, refreshes the saved file, and preserves existing files if rendering fails.
+- Members of composite PK/UNIQUE constraints are no longer treated as individually unique.
+- All inline reference settings on a column are parsed and validated.
+- Superseded background renders no longer replace a newer preview or re-enable exports.
+
 ## [0.2.0] - 2026-10-01
 
 ### Added
@@ -37,6 +60,7 @@ All notable changes to DBML Diagram are documented in this file. The project fol
 - Support for tables, columns, indexes, enums, inline and global references, comments, notes, and common column settings.
 - Reference action parsing for constructs such as `[delete: cascade]`.
 
-[Unreleased]: https://github.com/RomanVoronovskiy/DBML_Diagram/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/RomanVoronovskiy/DBML_Diagram/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/RomanVoronovskiy/DBML_Diagram/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/RomanVoronovskiy/DBML_Diagram/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/RomanVoronovskiy/DBML_Diagram/releases/tag/v0.1.0

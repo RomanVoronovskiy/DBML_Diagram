@@ -57,16 +57,17 @@ class TolerantDbmlParserTest {
 
     @Test fun `all reference cardinalities and direction`() {
         val result = parser.parse("""
-            Table users { id uuid }
+            Table users { id uuid [pk] }
             Table orders { user_id uuid }
-            Table profile { user_id uuid }
-            Table groups { id uuid }
+            Table profile { user_id uuid [unique] }
+            Table groups { id uuid [pk] }
             Ref: orders.user_id > users.id
             Ref: users.id < orders.user_id
             Ref: users.id - profile.user_id
             Ref: users.id <> groups.id
         """.trimIndent())
         assertEquals(listOf(DbmlCardinality.MANY_TO_ONE, DbmlCardinality.ONE_TO_MANY, DbmlCardinality.ONE_TO_ONE, DbmlCardinality.MANY_TO_MANY), result.schema!!.references.map { it.cardinality })
+        assertFalse(result.hasErrors, result.errors.toString())
     }
 
     @Test fun `enums project schema qualified names comments and inline refs`() {
@@ -154,21 +155,23 @@ class TolerantDbmlParserTest {
         assertFalse(result.hasErrors)
     }
 
-    @Test fun `unknown references are warnings`() {
+    @Test fun `unknown references are errors on their source line`() {
         val result = parser.parse("""
             Table users { id uuid }
             Ref: missing.user_id > users.missing_id
         """.trimIndent())
-        assertEquals(2, result.errors.count { it.severity == DbmlParseSeverity.WARNING })
+        assertEquals(2, result.errors.count { it.severity == DbmlParseSeverity.ERROR })
+        assertTrue(result.errors.all { it.line == 2 && it.referenceId != null })
+        assertTrue(result.canRender)
     }
 
     @Test fun `large generated schema`() {
         val source = buildString {
             repeat(100) { table ->
                 appendLine("Table t$table {")
-                repeat(12) { column -> appendLine("  c$column varchar(255) [not null]") }
+                repeat(12) { column -> appendLine("  c$column varchar(255) [not null${if (column == 0) ", pk" else ""}]") }
                 appendLine("}")
-                if (table > 0) appendLine("Ref: t$table.c0 > t${table - 1}.c0")
+                if (table > 0) appendLine("Ref: t$table.c1 > t${table - 1}.c0")
             }
         }
         val result = parser.parse(source)
