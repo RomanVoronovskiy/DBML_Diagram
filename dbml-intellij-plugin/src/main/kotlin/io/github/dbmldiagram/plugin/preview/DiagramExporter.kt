@@ -3,17 +3,18 @@ package io.github.dbmldiagram.plugin.preview
 import com.intellij.openapi.fileChooser.FileChooserFactory
 import com.intellij.openapi.fileChooser.FileSaverDescriptor
 import com.intellij.openapi.project.Project
+import com.intellij.openapi.application.ApplicationManager
+import com.intellij.openapi.diagnostic.Logger
+import com.intellij.openapi.progress.ProgressIndicator
+import com.intellij.openapi.progress.ProgressManager
+import com.intellij.openapi.progress.Task
 import com.intellij.openapi.ui.Messages
+import com.intellij.openapi.vfs.LocalFileSystem
 import com.intellij.openapi.vfs.VirtualFile
-import org.apache.batik.transcoder.TranscoderInput
-import org.apache.batik.transcoder.TranscoderOutput
-import org.apache.batik.transcoder.image.PNGTranscoder
-import java.io.StringReader
 import java.nio.file.Files
 
 object DiagramExporter {
-    private const val MAX_PIXELS = 40_000_000L
-    private const val MAX_DIMENSION = 16_384
+    private val log = Logger.getInstance(DiagramExporter::class.java)
 
     fun exportDdl(project: Project, source: VirtualFile, dialect: String, ddl: String) {
         val target = choose(project, source, "Export $dialect DDL", "sql") ?: return
@@ -26,25 +27,35 @@ object DiagramExporter {
     }
 
     fun exportPng(project: Project, source: VirtualFile, svg: String) {
-        val dimensions = Regex("<svg[^>]*width=\"(\\d+)\"[^>]*height=\"(\\d+)\"").find(svg)?.destructured
-        val width = dimensions?.component1()?.toIntOrNull() ?: 1024
-        val height = dimensions?.component2()?.toIntOrNull() ?: 768
-        if (width > MAX_DIMENSION || height > MAX_DIMENSION || width.toLong() * height > MAX_PIXELS) {
-            Messages.showErrorDialog(project, "Diagram is too large to export safely (${width}×${height}). Maximum is $MAX_DIMENSION per side and $MAX_PIXELS pixels.", "DBML Diagram")
+        val validation = runCatching { PngDiagramWriter.dimensions(svg) }
+        if (validation.isFailure) {
+            showError(project, validation.exceptionOrNull()!!)
             return
         }
         val target = choose(project, source, "Export DBML diagram as PNG", "png") ?: return
-        runCatching {
-            Files.newOutputStream(target).use { output ->
-                PNGTranscoder().transcode(TranscoderInput(StringReader(svg)), TranscoderOutput(output))
+        ProgressManager.getInstance().run(object : Task.Backgroundable(project, "Export DBML diagram as PNG", false) {
+            override fun run(indicator: ProgressIndicator) {
+                runCatching {
+                    PngDiagramWriter.write(svg, target)
+                    LocalFileSystem.getInstance().refreshAndFindFileByNioFile(target)
+                }.onFailure { error ->
+                    ApplicationManager.getApplication().invokeLater {
+                        if (!project.isDisposed) showError(project, error)
+                    }
+                }
             }
-        }.onFailure { showError(project, it) }
+        })
     }
 
     private fun choose(project: Project, source: VirtualFile, title: String, extension: String) =
         FileChooserFactory.getInstance().createSaveFileDialog(FileSaverDescriptor(title, "", extension), project)
             .save(source.parent, source.nameWithoutExtension + "." + extension)?.file?.toPath()
 
-    private fun showError(project: Project, error: Throwable) =
-        Messages.showErrorDialog(project, error.message ?: error.javaClass.simpleName, "DBML Diagram Export")
+    private fun showError(project: Project, error: Throwable) {
+        log.warn("DBML diagram export failed", error)
+        val explanation = generateSequence(error) { it.cause?.takeUnless { cause -> cause === it } }
+            .take(5).map { cause -> "${cause.javaClass.simpleName}: ${cause.message.orEmpty()}" }
+            .distinct().joinToString("\n")
+        Messages.showErrorDialog(project, explanation, "DBML Diagram Export")
+    }
 }

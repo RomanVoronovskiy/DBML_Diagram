@@ -1,6 +1,7 @@
 package io.github.dbmldiagram.core.parser
 
 import io.github.dbmldiagram.core.model.*
+import io.github.dbmldiagram.core.validation.ReferenceValidator
 
 class TolerantDbmlParser : DbmlParser {
     override fun parse(text: String): ParseResult {
@@ -11,7 +12,10 @@ class TolerantDbmlParser : DbmlParser {
 }
 
 private enum class Kind { WORD, STRING, SYMBOL, NEWLINE, EOF }
-private data class Token(val kind: Kind, val text: String, val line: Int, val column: Int, val quote: Char? = null)
+private data class Token(
+    val kind: Kind, val text: String, val line: Int, val column: Int, val quote: Char? = null,
+    val endLine: Int = line, val endColumn: Int = column + text.length,
+)
 
 private class Lexer(private val source: String) {
     val errors = mutableListOf<DbmlParseError>()
@@ -63,7 +67,7 @@ private class Lexer(private val source: String) {
         }
         if (offset >= source.length) errors += DbmlParseError("Unterminated quoted value", startLine, startColumn, DbmlParseSeverity.ERROR)
         else advance()
-        tokens += Token(Kind.STRING, value.toString(), startLine, startColumn, quote)
+        tokens += Token(Kind.STRING, value.toString(), startLine, startColumn, quote, line, column)
     }
     private fun word() {
         val start = offset; val startColumn = column
@@ -131,9 +135,9 @@ private class Parser(private val tokens: List<Token>, initialErrors: List<DbmlPa
             when {
                 matchWord("indexes") -> indexes += parseIndexes()
                 matchWord("Note") -> { consumeSymbol(":"); blockNote = collectLine().joinToString(" ") { it.text } }
-                else -> parseColumn(header, columns)?.let { (column, inlineRef) ->
+                else -> parseColumn(header, columns)?.let { (column, inlineRefs) ->
                     columns += column
-                    inlineRef?.let(references::add)
+                    references += inlineRefs
                 }
             }
         }
@@ -141,7 +145,7 @@ private class Parser(private val tokens: List<Token>, initialErrors: List<DbmlPa
         tables += DbmlTable(header.first, header.second, alias, headerNote ?: blockNote, columns, indexes)
     }
 
-    private fun parseColumn(table: Pair<String?, String>, existing: List<DbmlColumn>): Pair<DbmlColumn, DbmlReference?>? {
+    private fun parseColumn(table: Pair<String?, String>, existing: List<DbmlColumn>): Pair<DbmlColumn, List<DbmlReference>>? {
         val start = peek()
         val name = identifierOrNull() ?: run { warning("Expected column name", peek()); skipLine(); return null }
         val typeTokens = mutableListOf<Token>()
@@ -165,7 +169,7 @@ private class Parser(private val tokens: List<Token>, initialErrors: List<DbmlPa
             note = settingValue(settings, "note"),
         )
         if (existing.any { it.name.equals(name, true) }) warning("Duplicate column '$name' in table '${table.second}'", start)
-        val inline = parseInlineReference(settings, table, name)
+        val inline = settingSegments(settings).mapNotNull { parseInlineReference(it, table, name) }
         return column to inline
     }
 
@@ -245,6 +249,7 @@ private class Parser(private val tokens: List<Token>, initialErrors: List<DbmlPa
             name = name,
             onDelete = settingValue(settings, "delete"),
             onUpdate = settingValue(settings, "update"),
+            sourceRange = sourceRange(endpoints),
         )
     }
 
@@ -253,8 +258,9 @@ private class Parser(private val tokens: List<Token>, initialErrors: List<DbmlPa
         if (refIndex < 0) return null
         val tail = settings.drop(refIndex + 1).dropWhile { it.text == ":" }
         val opIndex = tail.indexOfFirst { it.text in setOf(">", "<", "-", "<>") }
-        if (opIndex < 0) return null
-        val target = parseColumnRef(tail.drop(opIndex + 1).takeWhile { it.text != "," }) ?: return null
+        if (opIndex < 0) { error("Reference operator is missing", settings[refIndex]); return null }
+        val target = parseColumnRef(tail.drop(opIndex + 1).takeWhile { it.text != "," })
+            ?: run { error("Invalid reference endpoint", settings[refIndex]); return null }
         val source = DbmlColumnRef(table.first, table.second, column)
         val cardinality = when (tail[opIndex].text) {
             ">" -> DbmlCardinality.MANY_TO_ONE
@@ -269,6 +275,7 @@ private class Parser(private val tokens: List<Token>, initialErrors: List<DbmlPa
             onDelete = settingValue(settings, "delete"),
             onUpdate = settingValue(settings, "update"),
             inline = true,
+            sourceRange = sourceRange(settings.drop(refIndex).takeWhile { it.text != "," }),
         )
     }
 
@@ -286,15 +293,13 @@ private class Parser(private val tokens: List<Token>, initialErrors: List<DbmlPa
         schema.tables.forEach { table ->
             if (!seen.add(table.qualifiedName.lowercase())) warning("Duplicate table '${table.qualifiedName}'", Token(Kind.WORD, table.name, 1, 1))
         }
-        schema.references.forEach { ref ->
-            listOf(ref.from, ref.to).forEach { endpoint ->
-                val table = schema.tables.firstOrNull { it.qualifiedName.equals(endpoint.tableName, true) || it.alias?.equals(endpoint.table, true) == true }
-                when {
-                    table == null -> warning("Unknown reference table '${endpoint.tableName}'", Token(Kind.WORD, endpoint.tableName, 1, 1))
-                    table.columns.none { it.name.equals(endpoint.column, true) } -> warning("Unknown reference column '${endpoint.tableName}.${endpoint.column}'", Token(Kind.WORD, endpoint.column, 1, 1))
-                }
-            }
-        }
+        errors += ReferenceValidator().validate(schema)
+    }
+
+    private fun sourceRange(items: List<Token>): DbmlSourceRange? {
+        val first = items.firstOrNull() ?: return null
+        val last = items.last()
+        return DbmlSourceRange(first.line, first.column, last.endLine, last.endColumn)
     }
 
     private fun parseQualifiedName(): Pair<String?, String>? {

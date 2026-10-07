@@ -11,6 +11,7 @@ import io.github.dbmldiagram.core.parser.DbmlParser
 import io.github.dbmldiagram.core.renderer.DiagramRenderer
 import java.util.concurrent.ScheduledFuture
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicLong
 
 interface RenderScheduler : Disposable {
     fun schedule(text: String)
@@ -28,18 +29,20 @@ class DebouncedRenderScheduler(
     private val lock = Any()
     private var pending: ScheduledFuture<*>? = null
     @Volatile private var disposed = false
+    private val revision = AtomicLong()
 
     override fun schedule(text: String) = submit(text, 300)
     override fun renderNow(text: String) = submit(text, 0)
 
     private fun submit(text: String, delayMs: Long) {
         synchronized(lock) {
+            val currentRevision = revision.incrementAndGet()
             pending?.cancel(false)
-            pending = executor.schedule({ render(text) }, delayMs, TimeUnit.MILLISECONDS)
+            pending = executor.schedule({ render(text, currentRevision) }, delayMs, TimeUnit.MILLISECONDS)
         }
     }
 
-    private fun render(text: String) {
+    private fun render(text: String, currentRevision: Long) {
         if (disposed) return
         try {
             val parseStarted = System.nanoTime()
@@ -48,7 +51,7 @@ class DebouncedRenderScheduler(
             var svg: String? = null
             var layoutMs = 0L; var renderMs = 0L
             val schema = result.schema
-            if (!result.hasErrors && schema != null) {
+            if (result.canRender && schema != null) {
                 val layoutStarted = System.nanoTime()
                 val layout = layoutEngine.layout(schema)
                 layoutMs = elapsed(layoutStarted)
@@ -59,12 +62,12 @@ class DebouncedRenderScheduler(
             log.debug("DBML render timings: parse=${parseMs}ms layout=${layoutMs}ms render=${renderMs}ms")
             val rendered = svg
             ApplicationManager.getApplication().invokeLater {
-                if (!disposed) callback(rendered, if (rendered != null) schema else null, result.errors)
+                if (!disposed && revision.get() == currentRevision) callback(rendered, if (rendered != null) schema else null, result.errors)
             }
         } catch (t: Throwable) {
             log.warn("DBML preview render failed", t)
             ApplicationManager.getApplication().invokeLater {
-                if (!disposed) callback(null, null, listOf(DbmlParseError("Preview failed: ${t.message ?: t.javaClass.simpleName}", 1, 1, io.github.dbmldiagram.core.model.DbmlParseSeverity.ERROR)))
+                if (!disposed && revision.get() == currentRevision) callback(null, null, listOf(DbmlParseError("Preview failed: ${t.message ?: t.javaClass.simpleName}", 1, 1, io.github.dbmldiagram.core.model.DbmlParseSeverity.ERROR)))
             }
         }
     }

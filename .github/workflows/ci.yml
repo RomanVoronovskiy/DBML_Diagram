@@ -31,7 +31,10 @@ jobs:
         uses: gradle/actions/setup-gradle@v6
 
       - name: Test, build, and verify plugin
-        run: ./gradlew test :dbml-intellij-plugin:verifyPlugin --stacktrace
+        run: ./gradlew test :dbml-intellij-plugin:testPackagedPlugin :dbml-intellij-plugin:verifyPlugin --stacktrace
+
+      - name: Test live preview relationship anchors
+        run: node dbml-intellij-plugin/src/test/js/preview-routing.test.cjs
 
       - name: Upload installable plugin
         uses: actions/upload-artifact@v7

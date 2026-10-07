@@ -13,6 +13,8 @@
   <li>Review directed foreign-key relationships with N:1 and 1:1 cardinality labels</li>
   <li>Drag tables and route relationship lines horizontally, vertically, or freely</li>
   <li>Attach relationships to the top, right, bottom, or left side of a table</li>
+  <li>Choose an attachment side by dragging an endpoint or clicking a table-side anchor</li>
+  <li>Automatically reroute relationship lines around table cards as the layout changes</li>
   <li>Keep custom table positions and relationship routes between preview refreshes</li>
   <li>Pan, zoom, fit, reset, and refresh the diagram</li>
   <li>Export the complete diagram as SVG or PNG</li>
@@ -27,7 +29,9 @@
 <p><b>IDE integration</b></p>
 <ul>
   <li>DBML file type, icon, syntax highlighting, and comment support</li>
-  <li>Realtime preview that keeps the last valid diagram visible while the document contains an error</li>
+  <li>Validate relationship cardinality, keys, endpoints, and compatible column types</li>
+  <li>See invalid references underlined in the editor and highlighted in red on the diagram</li>
+  <li>Keep the previous diagram visible while fixing syntax errors; exports are blocked while document errors remain</li>
   <li>Light and dark IDE theme support</li>
   <li>Fully offline runtime with no external services, database connection, Node.js, or CLI tools</li>
 </ul>

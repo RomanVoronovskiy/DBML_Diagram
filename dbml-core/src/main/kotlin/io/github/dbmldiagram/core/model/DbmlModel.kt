@@ -47,6 +47,7 @@ data class DbmlReference(
     val onDelete: String? = null,
     val onUpdate: String? = null,
     val inline: Boolean = false,
+    val sourceRange: DbmlSourceRange? = null,
 ) {
     /** Stable key used for persisted visual routing settings. */
     fun routeId(): String = listOf(
@@ -82,7 +83,21 @@ data class DbmlColumnRef(val schema: String? = null, val table: String, val colu
 enum class DbmlCardinality { ONE_TO_ONE, ONE_TO_MANY, MANY_TO_ONE, MANY_TO_MANY }
 
 enum class DbmlParseSeverity { WARNING, ERROR }
-data class DbmlParseError(val message: String, val line: Int, val column: Int, val severity: DbmlParseSeverity)
+data class DbmlSourceRange(val line: Int, val column: Int, val endLine: Int, val endColumn: Int)
+
+data class DbmlParseError(
+    val message: String,
+    val line: Int,
+    val column: Int,
+    val severity: DbmlParseSeverity,
+    val endLine: Int = line,
+    val endColumn: Int = column + 1,
+    val referenceId: String? = null,
+)
 data class ParseResult(val schema: DbmlSchema?, val errors: List<DbmlParseError>) {
     val hasErrors: Boolean get() = errors.any { it.severity == DbmlParseSeverity.ERROR }
+    /** Semantic reference errors can be drawn in red; syntax errors retain the previous diagram. */
+    val canRender: Boolean get() = schema != null && errors.none {
+        it.severity == DbmlParseSeverity.ERROR && it.referenceId == null
+    }
 }

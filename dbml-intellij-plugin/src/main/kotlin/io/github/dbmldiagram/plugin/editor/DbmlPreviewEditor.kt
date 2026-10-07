@@ -8,6 +8,7 @@ import com.intellij.openapi.fileEditor.FileDocumentManager
 import com.intellij.openapi.fileEditor.FileEditor
 import com.intellij.openapi.fileEditor.FileEditorState
 import com.intellij.openapi.project.Project
+import com.intellij.openapi.ui.Messages
 import com.intellij.openapi.util.UserDataHolderBase
 import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.ui.JBColor
@@ -31,6 +32,8 @@ import io.github.dbmldiagram.plugin.preview.DiagramPositionStore
 import io.github.dbmldiagram.plugin.preview.PreviewHtml
 import io.github.dbmldiagram.plugin.preview.PreviewViewState
 import java.awt.BorderLayout
+import java.awt.event.ComponentAdapter
+import java.awt.event.ComponentEvent
 import java.beans.PropertyChangeListener
 import java.beans.PropertyChangeSupport
 import java.net.URLDecoder
@@ -54,8 +57,8 @@ class DbmlPreviewEditor(private val project: Project, private val file: VirtualF
     private val manualPositions = ConcurrentHashMap(positionStore.load())
     private val manualRoutes = ConcurrentHashMap(positionStore.loadRoutes())
     private val layoutEngine = LayeredDiagramLayoutEngine(manualPositions, manualRoutes)
-    private var lastValidSvg: String? = null
-    private var lastValidSchema: DbmlSchema? = null
+    private var displayedSvg: String? = null
+    private val exportButtons = mutableListOf<JButton>()
     private var pendingViewState: PreviewViewState? = null
     private val ddlDialect = JComboBox(DdlDialect.values()).apply {
         selectedItem = DdlDialect.POSTGRESQL
@@ -67,6 +70,7 @@ class DbmlPreviewEditor(private val project: Project, private val file: VirtualF
     private val scheduler = DebouncedRenderScheduler(TolerantDbmlParser(), layoutEngine, SvgDiagramRenderer(), ::showResult)
     private val listener = object : DocumentListener {
         override fun documentChanged(event: DocumentEvent) {
+            exportButtons.forEach { it.isEnabled = false }
             scheduler.schedule(event.document.immutableCharSequence.toString())
         }
     }
@@ -83,7 +87,10 @@ class DbmlPreviewEditor(private val project: Project, private val file: VirtualF
     }
 
     private fun createToolbar() = JPanel().apply {
-        layout = java.awt.FlowLayout(java.awt.FlowLayout.LEFT, JBUI.scale(4), JBUI.scale(3))
+        layout = ResponsiveToolbarLayout()
+        addComponentListener(object : ComponentAdapter() {
+            override fun componentResized(event: ComponentEvent) { revalidate() }
+        })
         border = JBUI.Borders.customLine(JBColor.border(), 0, 0, 1, 0)
         add(button("Fit") { execute("fit()") })
         add(button("−") { execute("zoom(.8)") })
@@ -100,14 +107,12 @@ class DbmlPreviewEditor(private val project: Project, private val file: VirtualF
         add(button("Refresh") { scheduler.renderNow(document.immutableCharSequence.toString()) })
         add(JLabel("DDL dialect:"))
         add(ddlDialect)
-        add(button("Export DDL") {
+        add(exportButton("Export DDL") { schema, _ ->
             val dialect = ddlDialect.selectedItem as DdlDialect
-            lastValidSchema?.let {
-                DiagramExporter.exportDdl(project, file, dialect.displayName, dialect.generator().generate(it))
-            }
+            DiagramExporter.exportDdl(project, file, dialect.displayName, dialect.generator().generate(schema))
         }.apply { toolTipText = "Export DDL using the selected SQL dialect" })
-        add(button("Export SVG") { lastValidSvg?.let { DiagramExporter.exportSvg(project, file, it) } })
-        add(button("Export PNG") { lastValidSvg?.let { DiagramExporter.exportPng(project, file, it) } })
+        add(exportButton("Export SVG") { _, svg -> DiagramExporter.exportSvg(project, file, svg) })
+        add(exportButton("Export PNG") { _, svg -> DiagramExporter.exportPng(project, file, svg) })
         if (browser == null) add(JLabel("JCEF unavailable"))
     }
 
@@ -116,10 +121,24 @@ class DbmlPreviewEditor(private val project: Project, private val file: VirtualF
         addActionListener { action() }
     }
 
+    private fun exportButton(text: String, action: (DbmlSchema, String) -> Unit) = button(text) {
+        // Validate the current document, not a possibly stale debounced preview.
+        val result = TolerantDbmlParser().parse(document.immutableCharSequence.toString())
+        val schema = result.schema
+        if (result.hasErrors || schema == null) {
+            Messages.showErrorDialog(project, result.errors.joinToString("\n") { "Line ${it.line}: ${it.message}" }, "Fix DBML errors before exporting")
+        } else {
+            action(schema, SvgDiagramRenderer().render(schema, layoutEngine.layout(schema)))
+        }
+    }.apply {
+        isEnabled = false
+        exportButtons += this
+    }
+
     private fun showResult(svg: String?, schema: DbmlSchema?, errors: List<DbmlParseError>) {
-        if (svg != null) lastValidSvg = svg
+        exportButtons.forEach { it.isEnabled = svg != null && errors.none { error -> error.severity == io.github.dbmldiagram.core.model.DbmlParseSeverity.ERROR } }
+        if (svg != null) displayedSvg = svg
         if (schema != null) {
-            lastValidSchema = schema
             if (!ddlDialectInitialized) {
                 val databaseType = schema.project?.properties?.entries
                     ?.firstOrNull { it.key.equals("database_type", true) }
@@ -130,10 +149,10 @@ class DbmlPreviewEditor(private val project: Project, private val file: VirtualF
                 ddlDialectInitialized = true
             }
         }
-        val message = errors.firstOrNull()?.let { "DBML ${it.severity.name.lowercase()}: line ${it.line}: ${it.message}" }
+        val message = errors.joinToString("\n") { "DBML ${it.severity.name.lowercase()}: line ${it.line}: ${it.message}" }.ifEmpty { null }
         val viewState = pendingViewState.also { pendingViewState = null }
         val html = PreviewHtml.page(
-            lastValidSvg,
+            displayedSvg,
             message,
             JBColor.isBright().not(),
             positionQuery?.inject("payload"),
@@ -176,7 +195,7 @@ class DbmlPreviewEditor(private val project: Project, private val file: VirtualF
             toSide,
             DiagramPoint(values[0].coerceAtLeast(20.0), values[1].coerceAtLeast(20.0)),
         )
-        val view = PreviewViewState(values[2].coerceIn(0.1, 4.0), values[3], values[4])
+        val view = PreviewViewState(values[2].coerceIn(0.1, 4.0), values[3], values[4], relation)
         ApplicationManager.getApplication().invokeLater {
             if (disposed) return@invokeLater
             manualRoutes[relation] = route

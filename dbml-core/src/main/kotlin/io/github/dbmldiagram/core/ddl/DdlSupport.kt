@@ -3,15 +3,14 @@ package io.github.dbmldiagram.core.ddl
 import io.github.dbmldiagram.core.model.DbmlColumnRef
 import io.github.dbmldiagram.core.model.DbmlSchema
 import io.github.dbmldiagram.core.model.DbmlTable
+import io.github.dbmldiagram.core.validation.isColumnUnique
 
 internal fun primaryKeyColumns(table: DbmlTable): List<String> =
     table.indexes.firstOrNull { it.primaryKey }?.columns
         ?: table.columns.filter { it.primaryKey }.map { it.name }
 
 internal fun isUnique(table: DbmlTable, column: String): Boolean =
-    column in primaryKeyColumns(table) ||
-        table.columns.any { it.name.equals(column, true) && it.unique } ||
-        table.indexes.any { it.unique && it.columns.size == 1 && it.columns.single().equals(column, true) }
+    table.isColumnUnique(column)
 
 internal fun resolveTable(schema: DbmlSchema, reference: DbmlColumnRef): DbmlTable? =
     schema.tables.firstOrNull {

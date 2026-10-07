@@ -19,7 +19,7 @@ class PostgreSqlDdlGeneratorTest {
             }
             Table auth.users [note: 'Application users'] {
               tenant_id uuid [not null]
-              id uuid [not null]
+              id uuid [not null, unique]
               email varchar(255) [not null, unique, note: 'Login address']
               created_at timestamptz [not null, default: `now()`]
               display_name text [default: 'guest']

@@ -1,0 +1,157 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900" role="img" aria-labelledby="title desc">
+  <title id="title">DBML Diagram — DBML to ER</title>
+  <desc id="desc">Promotional cover showing correct one-to-many relationships from users.id to orders.user_id and from orders.id to order_items.order_id.</desc>
+  <defs>
+    <pattern id="grid" width="32" height="32" patternUnits="userSpaceOnUse">
+      <path d="M 32 0 L 0 0 0 32" fill="none" stroke="#17323a" stroke-width="1"/>
+    </pattern>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#07141a"/>
+      <stop offset="1" stop-color="#0b1a20"/>
+    </linearGradient>
+    <linearGradient id="titleMint" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#8bffe0"/>
+      <stop offset="1" stop-color="#49d6b0"/>
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="12" stdDeviation="16" flood-color="#000" flood-opacity="0.38"/>
+    </filter>
+    <filter id="glow" x="-100%" y="-100%" width="300%" height="300%">
+      <feGaussianBlur stdDeviation="5" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <style>
+      .ui { font-family: Inter, "Segoe UI", Arial, sans-serif; }
+      .mono { font-family: "JetBrains Mono", Consolas, monospace; }
+      .row { font-size: 19px; fill: #eaf3f5; }
+      .type { font-size: 17px; fill: #a9bbc0; text-anchor: end; }
+      .badge { font-size: 13px; font-weight: 800; text-anchor: middle; dominant-baseline: middle; }
+      .card-title { font-size: 26px; font-weight: 760; fill: #f7fbfc; }
+      .relation-label { font: 800 17px Inter, "Segoe UI", Arial, sans-serif; fill: #ffffff; paint-order: stroke; stroke: #07141a; stroke-width: 5px; }
+    </style>
+  </defs>
+
+  <rect width="1600" height="900" fill="url(#bg)"/>
+  <rect width="1600" height="900" fill="url(#grid)" opacity="0.75"/>
+  <circle cx="1190" cy="100" r="360" fill="#0f8f78" opacity="0.055"/>
+  <circle cx="510" cy="870" r="340" fill="#1ca9d1" opacity="0.035"/>
+
+  <!-- Header -->
+  <g class="ui">
+    <rect x="48" y="42" width="272" height="58" rx="29" fill="#0d2026" stroke="#65f2cf" stroke-width="2"/>
+    <text x="184" y="79" text-anchor="middle" fill="#7ff5d6" font-size="23" font-weight="720" letter-spacing="6">OPEN SOURCE</text>
+    <text x="48" y="220" font-size="116" font-weight="850" letter-spacing="-4" fill="url(#titleMint)">DBML</text>
+    <text x="410" y="220" font-size="116" font-weight="800" letter-spacing="-4" fill="#f6f8f8">Diagram</text>
+    <text x="50" y="286" font-size="54" font-weight="720" fill="#dce5e7">DBML</text>
+    <path d="M230 268 H286 M271 252 L289 268 L271 284" fill="none" stroke="#65f2cf" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+    <text x="314" y="286" font-size="54" font-weight="720" fill="#dce5e7">ER</text>
+  </g>
+
+  <!-- DBML source -->
+  <g filter="url(#shadow)">
+    <rect x="48" y="340" width="448" height="502" rx="18" fill="#101f27" stroke="#32505a" stroke-width="2"/>
+    <rect x="48" y="340" width="448" height="52" rx="18" fill="#132832"/>
+    <path d="M48 374 V358 A18 18 0 0 1 66 340 H478 A18 18 0 0 1 496 358 V374 Z" fill="#132832"/>
+    <circle cx="78" cy="366" r="6" fill="#ff6b6b"/><circle cx="98" cy="366" r="6" fill="#ffd166"/><circle cx="118" cy="366" r="6" fill="#65f2cf"/>
+    <text x="144" y="373" class="mono" font-size="16" fill="#9db3ba">schema.dbml</text>
+  </g>
+  <g class="mono" font-size="18" fill="#e9f0f2">
+    <text x="76" y="420"><tspan fill="#55cef5">Table</tspan><tspan> users {</tspan></text>
+    <text x="98" y="444">id <tspan fill="#55cef5">int</tspan> <tspan fill="#ffd24d">[pk]</tspan></text>
+    <text x="98" y="468">name <tspan fill="#55cef5">string</tspan></text>
+    <text x="98" y="492">email <tspan fill="#55cef5">string</tspan> <tspan fill="#ffd24d">[unique]</tspan></text>
+    <text x="76" y="516">}</text>
+    <text x="76" y="552"><tspan fill="#55cef5">Table</tspan><tspan> orders {</tspan></text>
+    <text x="98" y="576">id <tspan fill="#55cef5">int</tspan> <tspan fill="#ffd24d">[pk]</tspan></text>
+    <text x="98" y="600">user_id <tspan fill="#55cef5">int</tspan> <tspan fill="#ffd24d">[ref: &gt; users.id]</tspan></text>
+    <text x="98" y="624">created_at <tspan fill="#55cef5">timestamp</tspan></text>
+    <text x="76" y="648">}</text>
+    <text x="76" y="684"><tspan fill="#55cef5">Table</tspan><tspan> order_items {</tspan></text>
+    <text x="98" y="708">id <tspan fill="#55cef5">int</tspan> <tspan fill="#ffd24d">[pk]</tspan></text>
+    <text x="98" y="732">order_id <tspan fill="#55cef5">int</tspan> <tspan fill="#ffd24d">[ref: &gt; orders.id]</tspan></text>
+    <text x="98" y="756">product_id <tspan fill="#55cef5">int</tspan></text>
+    <text x="98" y="780">quantity <tspan fill="#55cef5">int</tspan></text>
+    <text x="76" y="804">}</text>
+  </g>
+
+  <!-- Conversion arrow -->
+  <g filter="url(#glow)" stroke="#65f2cf" fill="none" stroke-width="8" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M520 582 H574"/><path d="M557 564 L577 582 L557 600"/>
+  </g>
+
+  <!-- Users card -->
+  <g filter="url(#shadow)" class="ui">
+    <rect x="620" y="360" width="252" height="292" rx="16" fill="#102529" stroke="#61e9c7" stroke-width="2"/>
+    <path d="M620 376 A16 16 0 0 1 636 360 H856 A16 16 0 0 1 872 376 V428 H620 Z" fill="#12363a"/>
+    <ellipse cx="652" cy="388" rx="16" ry="7" fill="none" stroke="#61e9c7" stroke-width="4"/>
+    <path d="M636 388 V410 C636 418 668 418 668 410 V388 M636 399 C636 407 668 407 668 399" fill="none" stroke="#61e9c7" stroke-width="4"/>
+    <text x="688" y="404" class="card-title">users</text>
+    <line x1="620" y1="428" x2="872" y2="428" stroke="#61e9c7" stroke-width="2"/>
+    <text x="642" y="471" class="row">id</text><text x="764" y="471" class="type">int</text>
+    <rect x="782" y="444" width="48" height="30" rx="8" fill="#0c3136" stroke="#61e9c7"/><text x="806" y="460" class="badge" fill="#7ff5d6">PK</text>
+    <line x1="620" y1="492" x2="872" y2="492" stroke="#28444a"/>
+    <text x="642" y="535" class="row">name</text><text x="842" y="535" class="type">string</text>
+    <line x1="620" y1="556" x2="872" y2="556" stroke="#28444a"/>
+    <text x="642" y="599" class="row">email</text><text x="764" y="599" class="type">string</text>
+    <rect x="776" y="572" width="58" height="30" rx="8" fill="#102d39" stroke="#42bff2"/><text x="805" y="588" class="badge" fill="#64d4ff">UNIQ</text>
+  </g>
+
+  <!-- Orders card -->
+  <g filter="url(#shadow)" class="ui">
+    <rect x="966" y="360" width="252" height="292" rx="16" fill="#27271d" stroke="#f3c54b" stroke-width="2"/>
+    <path d="M966 376 A16 16 0 0 1 982 360 H1202 A16 16 0 0 1 1218 376 V428 H966 Z" fill="#34321e"/>
+    <ellipse cx="998" cy="388" rx="16" ry="7" fill="none" stroke="#f3c54b" stroke-width="4"/>
+    <path d="M982 388 V410 C982 418 1014 418 1014 410 V388 M982 399 C982 407 1014 407 1014 399" fill="none" stroke="#f3c54b" stroke-width="4"/>
+    <text x="1034" y="404" class="card-title">orders</text>
+    <line x1="966" y1="428" x2="1218" y2="428" stroke="#f3c54b" stroke-width="2"/>
+    <text x="988" y="471" class="row">id</text><text x="1110" y="471" class="type">int</text>
+    <rect x="1128" y="444" width="48" height="30" rx="8" fill="#322d14" stroke="#f3c54b"/><text x="1152" y="460" class="badge" fill="#ffd76b">PK</text>
+    <line x1="966" y1="492" x2="1218" y2="492" stroke="#4a4630"/>
+    <text x="988" y="535" class="row">user_id</text><text x="1110" y="535" class="type">int</text>
+    <rect x="1128" y="508" width="48" height="30" rx="8" fill="#102d39" stroke="#42bff2"/><text x="1152" y="524" class="badge" fill="#64d4ff">FK</text>
+    <line x1="966" y1="556" x2="1218" y2="556" stroke="#4a4630"/>
+    <text x="988" y="599" class="row">created_at</text><text x="1188" y="599" class="type">timestamp</text>
+  </g>
+
+  <!-- Order items card -->
+  <g filter="url(#shadow)" class="ui">
+    <rect x="1312" y="360" width="252" height="356" rx="16" fill="#102529" stroke="#61e9c7" stroke-width="2"/>
+    <path d="M1312 376 A16 16 0 0 1 1328 360 H1548 A16 16 0 0 1 1564 376 V428 H1312 Z" fill="#12363a"/>
+    <ellipse cx="1344" cy="388" rx="16" ry="7" fill="none" stroke="#61e9c7" stroke-width="4"/>
+    <path d="M1328 388 V410 C1328 418 1360 418 1360 410 V388 M1328 399 C1328 407 1360 407 1360 399" fill="none" stroke="#61e9c7" stroke-width="4"/>
+    <text x="1380" y="404" class="card-title">order_items</text>
+    <line x1="1312" y1="428" x2="1564" y2="428" stroke="#61e9c7" stroke-width="2"/>
+    <text x="1334" y="471" class="row">id</text><text x="1456" y="471" class="type">int</text>
+    <rect x="1474" y="444" width="48" height="30" rx="8" fill="#0c3136" stroke="#61e9c7"/><text x="1498" y="460" class="badge" fill="#7ff5d6">PK</text>
+    <line x1="1312" y1="492" x2="1564" y2="492" stroke="#28444a"/>
+    <text x="1334" y="535" class="row">order_id</text><text x="1456" y="535" class="type">int</text>
+    <rect x="1474" y="508" width="48" height="30" rx="8" fill="#102d39" stroke="#42bff2"/><text x="1498" y="524" class="badge" fill="#64d4ff">FK</text>
+    <line x1="1312" y1="556" x2="1564" y2="556" stroke="#28444a"/>
+    <text x="1334" y="599" class="row">product_id</text><text x="1534" y="599" class="type">int</text>
+    <line x1="1312" y1="620" x2="1564" y2="620" stroke="#28444a"/>
+    <text x="1334" y="663" class="row">quantity</text><text x="1534" y="663" class="type">int</text>
+  </g>
+
+  <!-- Exact PK-to-FK relationships. Row centers: id=460, second row=524. -->
+  <g fill="none" stroke="#72b7ff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M872 460 H915 V524 H966"/>
+    <path d="M1218 460 H1261 V524 H1312"/>
+  </g>
+  <g fill="#07141a" stroke="#8bc8ff" stroke-width="3">
+    <circle cx="872" cy="460" r="7"/><circle cx="966" cy="524" r="7"/>
+    <circle cx="1218" cy="460" r="7"/><circle cx="1312" cy="524" r="7"/>
+  </g>
+  <g class="relation-label">
+    <text x="883" y="447">1</text><text x="943" y="548">N</text>
+    <text x="1229" y="447">1</text><text x="1289" y="548">N</text>
+  </g>
+
+  <!-- Relationship legend -->
+  <g class="ui">
+    <rect x="696" y="770" width="792" height="76" rx="20" fill="#0c1c22" stroke="#28464f"/>
+    <circle cx="730" cy="808" r="7" fill="#07141a" stroke="#8bc8ff" stroke-width="3"/>
+    <text x="750" y="815" font-size="19" fill="#dbe8eb"><tspan font-weight="760">users.id</tspan><tspan fill="#8bc8ff">  1 → N  </tspan><tspan font-weight="760">orders.user_id</tspan></text>
+    <circle cx="1094" cy="808" r="7" fill="#07141a" stroke="#8bc8ff" stroke-width="3"/>
+    <text x="1114" y="815" font-size="19" fill="#dbe8eb"><tspan font-weight="760">orders.id</tspan><tspan fill="#8bc8ff">  1 → N  </tspan><tspan font-weight="760">order_items.order_id</tspan></text>
+  </g>
+</svg>
