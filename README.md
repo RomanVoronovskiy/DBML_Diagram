@@ -4,7 +4,7 @@
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 [![IntelliJ Platform](https://img.shields.io/badge/IntelliJ%20Platform-2024.1--2026.1-purple.svg)](https://plugins.jetbrains.com/)
 
-DBML Diagram is an open-source, offline IntelliJ Platform plugin that shows a realtime SVG entity-relationship diagram next to a `.dbml` file. It supports IntelliJ IDEA and DataGrip-compatible Platform IDEs. Marketplace publication is currently pending moderation.
+DBML Diagram is an open-source IntelliJ Platform plugin that shows a realtime SVG entity-relationship diagram next to a `.dbml` file. Version **1.0.0** adds optional dbdiagram.io synchronization while keeping local editing, preview, validation, and exports offline. It supports IntelliJ IDEA and DataGrip-compatible Platform IDEs.
 
 ## Features
 
@@ -20,7 +20,47 @@ DBML Diagram is an open-source, offline IntelliJ Platform plugin that shows a re
 - Visible `PK`, `FK`, `UNIQ`, and `NOT_NULL` markers on diagram columns.
 - Light and Darcula-aware diagram colors.
 - DBML file type, icon, comments, and basic syntax highlighting.
-- No browser window, network service, Node.js, database, CLI, or external executable is used at runtime.
+- Optional dbdiagram.io browser login through the official CLI, or a workspace API token stored in IDE PasswordSafe.
+- Search and select remote diagrams in **My Diagrams**, download DBML, link an existing file, and explicitly Pull or Push.
+- Local editing, preview, validation, and SVG/PNG/DDL exports do not require an account, network access, Node.js, or CLI tools.
+
+## dbdiagram.io integration (1.0.0)
+
+Open **View | Tool Windows | dbdiagram.io**, or click **dbdiagram** in the DBML preview toolbar. Use **Connection…** to choose one of two authentication methods:
+
+### Browser login — official CLI
+
+1. Install Node.js **22.14 or newer** and run `npm install -g dbdiagram` in a terminal. The integration was developed against official CLI **0.6.3**.
+2. Select **Browser login (official CLI)**. The plugin detects Node.js and `node_modules/dbdiagram/dist/index.js` when possible; otherwise enter their absolute paths. Do not select the `.cmd`/`.ps1` shim as the CLI entry.
+3. Leave **Workspace ID** blank for your personal workspace, or enter a team workspace's ID.
+4. Click **Login / Connect** and finish authentication in the browser opened by the official CLI. The plugin then loads **My Diagrams**.
+
+The CLI manages its own global credentials; the plugin never reads that credentials file or your account password. **Disconnect** logs out the shared CLI account, including terminal use. An existing terminal CLI login can be reused with **Refresh** instead of logging in again. The plugin ignores inherited `DBDIAGRAM_TOKEN` and CLI host-override environment variables in this mode so browser credentials and official hosts are used consistently.
+
+Each CLI operation runs in a private temporary directory with explicit diagram/file arguments. The plugin does not run `dbdiagram init`, execute project hooks, or change your repository's CLI settings, `.env`, or adjacent visualization files. Official CLI authentication and its own telemetry remain governed by the CLI/provider.
+
+### Workspace API token — no Node.js required
+
+1. In dbdiagram.io, open the relevant workspace and its **API Tokens** tab (shown in the website's My Diagrams window).
+2. Generate a workspace token as the workspace owner.
+3. Select **Workspace API token (no Node.js)**, paste it, save, and click **Login / Connect**.
+
+The [public API](https://docs.dbdiagram.io/api/v1/) is currently beta and requires a paid plan. Tokens grant workspace-scoped access. This mode connects directly to the documented HTTPS API and requires neither npm nor the CLI. The token is stored using **IntelliJ PasswordSafe**, never in project files. Leaving the token field blank preserves the saved token; **Disconnect** removes it.
+
+### Select, edit, Pull, Push
+
+1. Search **My Diagrams** by name or ID; sort columns by clicking their headers. Select a diagram and click **Pull to file…** to download and open a `.dbml` file. The downloaded file is automatically linked.
+2. Alternatively, open an existing `.dbml` file and click **Link to current DBML** for the selected diagram. **Link ID** in the preview toolbar also accepts an ID or `https://dbdiagram.io/d/...` URL. Linking records the remote baseline without replacing local content.
+3. Edit DBML normally. **Pull** replaces local text only after confirmation, including unsaved edits, and is undoable in the editor. If the document changes during the download/confirmation, the operation stops without discarding edits.
+4. **Push** sends the editor's current text, including unsaved edits, after confirmation. Before upload it fetches the remote DBML and compares it with the baseline from the previous Link/Pull/Push. If someone else changed it, upload is stopped: download into a separate file, merge manually, and relink before retrying.
+
+Push updates the linked existing diagram, not a new diagram. It does not rename the diagram or upload the plugin's table positions/relationship routes. Website visualization settings are retained by omitting them from the update. No automatic synchronization, automatic push retry, diagram creation, deletion, or rename is performed. Empty local documents and DBML larger than 8 MiB are not pushed. If local parser errors exist, explicit confirmation is required because the cloud supports a wider DBML grammar; the server remains responsible for accepting or rejecting the DBML.
+
+Changing the API token, using **Login** again, or disconnecting invalidates old bindings; relink files before syncing with a different account. If you change the shared CLI account outside the IDE, relink files manually as well. **Refresh** reuses the current account without invalidating bindings.
+
+The public API/CLI does not provide an atomic compare-and-swap update: another writer could still change the diagram between the final check and upload. The check reduces accidental overwrites but is not a distributed lock. Coordinate simultaneous edits. If a push times out/is canceled, its server outcome may be uncertain; inspect the remote before retrying.
+
+The list shows the diagrams accessible to the selected CLI workspace or API token. Metadata unavailable from that backend is shown as `—` (for example, the CLI does not return creation dates). Team workspace selection currently uses a workspace ID in Connection settings, not a website-style workspace dropdown. See [PRIVACY.md](PRIVACY.md) for data handling.
 
 ## Build
 
@@ -72,7 +112,8 @@ dbml-core
 dbml-intellij-plugin
 ├── language    file type, commenter, lexer/highlighter
 ├── editor      standard text editor + preview composition
-└── preview     debounce scheduler, JCEF UI, SVG/PNG export
+├── preview     debounce scheduler, JCEF UI, SVG/PNG export
+└── cloud       optional official API/CLI clients, credentials, bindings, My Diagrams
 ```
 
 The parser never calls the renderer. `DbmlSchema` is immutable and suitable for a future semantic diff. Layout is behind `DiagramLayoutEngine`, so ELK or another engine can replace the current dependency-free layered algorithm without changing parsing or preview code. JCEF receives only generated, self-contained HTML/SVG.
