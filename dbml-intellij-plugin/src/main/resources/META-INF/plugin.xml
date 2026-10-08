@@ -11,5 +11,6 @@
         <externalAnnotator language="DBML" implementationClass="io.github.dbmldiagram.plugin.language.DbmlExternalAnnotator"/>
         <lang.commenter language="DBML" implementationClass="io.github.dbmldiagram.plugin.language.DbmlCommenter"/>
         <fileEditorProvider implementation="io.github.dbmldiagram.plugin.editor.DbmlFileEditorProvider"/>
+        <toolWindow id="dbdiagram.io" anchor="right" factoryClass="io.github.dbmldiagram.plugin.cloud.DbdiagramToolWindowFactory"/>
     </extensions>
 </idea-plugin>

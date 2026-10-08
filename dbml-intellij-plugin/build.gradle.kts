@@ -62,6 +62,13 @@ intellijPlatform {
 tasks {
     patchPluginXml {
         changeNotes = """
+            <h3>1.0.0</h3>
+            <ul>
+              <li>Connect to dbdiagram.io via official CLI browser login or a securely stored workspace API token.</li>
+              <li>Browse and search diagrams inside the IDE; download a diagram or link it to an existing DBML file.</li>
+              <li>Pull and push DBML from the editor toolbar, with overwrite confirmation and remote-change checks.</li>
+              <li>Keep website visualization settings intact and preserve local preview/export features offline.</li>
+            </ul>
             <h3>0.3.0</h3>
             <ul>
               <li>Reroute relationship lines around tables during dragging and in SVG/PNG export.</li>

@@ -33,8 +33,23 @@
   <li>See invalid references underlined in the editor and highlighted in red on the diagram</li>
   <li>Keep the previous diagram visible while fixing syntax errors; exports are blocked while document errors remain</li>
   <li>Light and dark IDE theme support</li>
-  <li>Fully offline runtime with no external services, database connection, Node.js, or CLI tools</li>
+  <li>Local editing, preview, validation, and exports work offline without an account, Node.js, or CLI tools</li>
 </ul>
+
+<p><b>dbdiagram.io synchronization — new in 1.0.0</b></p>
+<ul>
+  <li>Log in through the official dbdiagram CLI browser flow, or connect with a workspace API token stored in IDE PasswordSafe</li>
+  <li>Browse and search accessible diagrams in the My Diagrams tool window without copying diagram IDs</li>
+  <li>Download a diagram into a local DBML file or link an existing file by selection, ID, or URL</li>
+  <li>Explicitly Pull remote DBML and Push local editor changes with confirmation and remote-change checks</li>
+  <li>Keep website diagram layout/settings separate from the IDE's local layout</li>
+</ul>
+<p>
+  Cloud synchronization is optional and requires network access. Browser login requires Node.js 22.14+ and the official dbdiagram CLI installed separately.
+  Native API mode requires a workspace API token and API access on your dbdiagram plan (currently a paid-plan beta).
+  No automatic uploads are performed. Remote-change checks are not atomic locks; coordinate simultaneous edits.
+  <a href="https://github.com/RomanVoronovskiy/DBML_Diagram/blob/main/PRIVACY.md">Privacy and data handling</a>.
+</p>
 
 <p>
   Keep database schemas together with source code, review schema changes, and maintain DBML documentation without leaving the IDE.

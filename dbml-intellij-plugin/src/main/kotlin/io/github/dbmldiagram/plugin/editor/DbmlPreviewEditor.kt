@@ -26,6 +26,7 @@ import io.github.dbmldiagram.core.model.DbmlParseError
 import io.github.dbmldiagram.core.model.DbmlSchema
 import io.github.dbmldiagram.core.parser.TolerantDbmlParser
 import io.github.dbmldiagram.core.renderer.SvgDiagramRenderer
+import io.github.dbmldiagram.plugin.cloud.CloudController
 import io.github.dbmldiagram.plugin.preview.DebouncedRenderScheduler
 import io.github.dbmldiagram.plugin.preview.DiagramExporter
 import io.github.dbmldiagram.plugin.preview.DiagramPositionStore
@@ -113,6 +114,10 @@ class DbmlPreviewEditor(private val project: Project, private val file: VirtualF
         }.apply { toolTipText = "Export DDL using the selected SQL dialect" })
         add(exportButton("Export SVG") { _, svg -> DiagramExporter.exportSvg(project, file, svg) })
         add(exportButton("Export PNG") { _, svg -> DiagramExporter.exportPng(project, file, svg) })
+        add(button("dbdiagram") { CloudController.get(project).show() }.apply { toolTipText = "Browse and download your dbdiagram.io diagrams" })
+        add(button("Link ID") { CloudController.get(project).bindId(file) }.apply { toolTipText = "Link this file to a diagram ID or URL without replacing local content" })
+        add(button("Pull") { CloudController.get(project).pull(file) }.apply { toolTipText = "Download linked remote DBML, with overwrite confirmation" })
+        add(button("Push") { CloudController.get(project).push(file) }.apply { toolTipText = "Upload current DBML to its linked remote diagram, with conflict protection" })
         if (browser == null) add(JLabel("JCEF unavailable"))
     }
 

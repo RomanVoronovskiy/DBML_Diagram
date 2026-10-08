@@ -4,6 +4,19 @@ All notable changes to DBML Diagram are documented in this file. The project fol
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-10-07
+
+### Added
+
+- Optional dbdiagram.io integration through official CLI browser authentication or the public workspace API.
+- A dbdiagram.io tool window with My Diagrams, literal name/ID search, sortable metadata, and download/link/open-on-web actions.
+- Link ID, Pull, and Push buttons in the responsive DBML preview toolbar; local SVG/PNG/DDL export remains available.
+- Workspace API credentials in IDE PasswordSafe, with nonsensitive connection settings and per-project file bindings.
+- Explicit overwrite/upload confirmations, remote baseline conflict checks, protection against concurrent local edits during Pull, and account-change binding invalidation.
+- Isolated CLI execution without modifying project settings/hooks/viz files, cancellable background requests, fixed official hosts, bounded HTTP/CLI responses, and no automatic push retries.
+- Contract tests for API/CLI serialization, listing, authentication commands, ID validation, limits, cleanup, metadata persistence, and IDE list filtering.
+- Documentation for both authentication modes, optional network use, provider telemetry, and synchronization limitations.
+
 ## [0.3.0] - 2026-10-04
 
 ### Added
@@ -60,7 +73,8 @@ All notable changes to DBML Diagram are documented in this file. The project fol
 - Support for tables, columns, indexes, enums, inline and global references, comments, notes, and common column settings.
 - Reference action parsing for constructs such as `[delete: cascade]`.
 
-[Unreleased]: https://github.com/RomanVoronovskiy/DBML_Diagram/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/RomanVoronovskiy/DBML_Diagram/compare/v1.0.0...HEAD
+[1.0.0]: https://github.com/RomanVoronovskiy/DBML_Diagram/compare/v0.3.0...v1.0.0
 [0.3.0]: https://github.com/RomanVoronovskiy/DBML_Diagram/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/RomanVoronovskiy/DBML_Diagram/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/RomanVoronovskiy/DBML_Diagram/releases/tag/v0.1.0
