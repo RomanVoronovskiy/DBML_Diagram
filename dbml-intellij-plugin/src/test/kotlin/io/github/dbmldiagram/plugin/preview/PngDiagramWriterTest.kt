@@ -11,6 +11,23 @@ import javax.imageio.ImageIO
 import java.nio.file.Files
 
 class PngDiagramWriterTest {
+    @Test fun rejectsDtdAndEntitiesBeforeXmlParsing() {
+        for (prefix in listOf("<!DOCTYPE svg SYSTEM 'file:///must-not-read'>", "<!DOCTYPE svg [<!ENTITY secret SYSTEM 'file:///must-not-read'>]>", "<!ENTITY secret 'value'>")) {
+            try {
+                PngDiagramWriter.encode(prefix + "<svg xmlns='http://www.w3.org/2000/svg' width='20' height='20'/>")
+                fail("DTD/entity input was accepted")
+            } catch (e: IllegalArgumentException) { assertTrue(e.message!!.contains("entity declarations")) }
+        }
+    }
+    @Test fun refusesExternalImageResources() {
+        try {
+            PngDiagramWriter.encode("""<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="20" height="20"><image width="20" height="20" xlink:href="file:///must-not-read.png"/></svg>""")
+            fail("External image should not be loaded")
+        } catch (e: Exception) {
+            val causes = generateSequence<Throwable>(e) { it.cause }.take(8).toList()
+            assertTrue("Failure must be a resource security denial, not a failed file read: $e", causes.any { it is SecurityException || it.message.orEmpty().contains("external resource", true) })
+        }
+    }
     @Test fun exportsDiagramWithConstraintsArrowsAndManualPositions() {
         val schema = TolerantDbmlParser().parse("""
             Table users {

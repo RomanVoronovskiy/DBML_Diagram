@@ -1,4 +1,5 @@
 import org.jetbrains.intellij.platform.gradle.IntelliJPlatformType
+import java.io.File
 
 plugins {
     kotlin("jvm")
@@ -7,6 +8,12 @@ plugins {
 
 kotlin {
     jvmToolchain(17)
+    compilerOptions {
+        languageVersion.set(org.jetbrains.kotlin.gradle.dsl.KotlinVersion.KOTLIN_2_0)
+        apiVersion.set(org.jetbrains.kotlin.gradle.dsl.KotlinVersion.KOTLIN_2_0)
+        // Inherit IDE interface defaults instead of generating legacy DefaultImpls forwarders to internal APIs.
+        jvmDefault.set(org.jetbrains.kotlin.gradle.dsl.JvmDefaultMode.NO_COMPATIBILITY)
+    }
 }
 
 repositories {
@@ -25,9 +32,11 @@ configurations.configureEach {
 
 dependencies {
     implementation(project(":dbml-core"))
-    implementation("org.apache.xmlgraphics:batik-transcoder:1.17")
-    implementation("org.apache.xmlgraphics:batik-codec:1.17")
+    implementation("org.apache.xmlgraphics:batik-transcoder:1.19")
+    implementation("org.apache.xmlgraphics:batik-codec:1.19")
     testImplementation("junit:junit:4.13.2")
+    // Standalone packaged-ZIP tests do not get the IDE bootstrap classloader.
+    testImplementation("org.jetbrains.kotlin:kotlin-stdlib:1.9.22")
 
     intellijPlatform {
         intellijIdeaCommunity("2024.1.7")
@@ -43,7 +52,7 @@ intellijPlatform {
         version = project.version.toString()
         ideaVersion {
             sinceBuild = "241"
-            untilBuild = "261.*"
+            untilBuild = "262.*"
         }
         vendor {
             name = "DBML Diagram Contributors"
@@ -52,9 +61,15 @@ intellijPlatform {
     }
     pluginVerification {
         ides {
-            ide(IntelliJPlatformType.IntellijIdeaCommunity, "2024.1.7")
-            ide(IntelliJPlatformType.IntellijIdeaCommunity, "2025.2.6")
-            providers.gradleProperty("verifyLocalIde").orNull?.let { local(file(it)) }
+            val localIdes = providers.gradleProperty("verifyLocalIde").orNull
+            if (localIdes != null) {
+                // Explicit local verification must not download the remote matrix first.
+                localIdes.split(File.pathSeparator).filter { it.isNotBlank() }.forEach { path -> local(file(path)) }
+            } else {
+                create(IntelliJPlatformType.IntellijIdeaCommunity, "2024.1.7")
+                create(IntelliJPlatformType.IntellijIdeaCommunity, "2025.2.6")
+                create(IntelliJPlatformType.IntellijIdeaUltimate, "2026.2.3")
+            }
         }
     }
 }
@@ -62,6 +77,12 @@ intellijPlatform {
 tasks {
     patchPluginXml {
         changeNotes = """
+            <h3>1.0.1</h3>
+            <ul>
+              <li>Support IntelliJ Platform build 262 while retaining compatibility with 241 and later.</li>
+              <li>Update Apache Batik and the Gradle/Kotlin build toolchain.</li>
+              <li>Reduce obsolete preview work and harden PNG resource handling.</li>
+            </ul>
             <h3>1.0.0</h3>
             <ul>
               <li>Connect to dbdiagram.io via official CLI browser login or a securely stored workspace API token.</li>
