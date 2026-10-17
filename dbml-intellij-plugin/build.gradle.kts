@@ -36,7 +36,7 @@ dependencies {
     implementation("org.apache.xmlgraphics:batik-codec:1.19")
     testImplementation("junit:junit:4.13.2")
     // Standalone packaged-ZIP tests do not get the IDE bootstrap classloader.
-    testImplementation("org.jetbrains.kotlin:kotlin-stdlib:1.9.22")
+    testImplementation("org.jetbrains.kotlin:kotlin-stdlib:2.4.21")
 
     intellijPlatform {
         intellijIdeaCommunity("2024.1.7")
