@@ -4,6 +4,17 @@ All notable changes to DBML Diagram are documented in this file. The project fol
 
 ## [Unreleased]
 
+## [1.0.2] - 2026-10-17
+
+### Fixed
+
+- Prevent parser recovery from repeatedly reporting the same closing brace until the IDE runs out of Java heap memory; unexpected top-level braces now produce errors at their actual locations and parsing continues.
+- Safely skip complete `TableGroup`, standalone `Note`, and unknown declaration blocks, including nested blocks and quoted braces. These visualization-only blocks produce warnings and are not rendered; tables and relationships following them remain available.
+- Read triple-single-quoted multiline notes as single values, preserving apostrophes and source locations; treat quoted brackets, commas, and other punctuation as text rather than DBML structure.
+- Keep a table's closing brace intact after its inline `Note`, including a multiline note ending on the same line.
+- Accept opening braces on the following line for tables, enums, projects, indexes, and named reference blocks.
+- Add bounded-heap subprocess regressions for recovery, malformed input, multiline notes, source ranges, and full parse/layout/SVG rendering of a generated large schema. Private user diagrams are not included in test fixtures.
+
 ## [1.0.1] - 2026-10-14
 
 ### Changed

@@ -77,6 +77,12 @@ intellijPlatform {
 tasks {
     patchPluginXml {
         changeNotes = """
+            <h3>1.0.2</h3>
+            <ul>
+              <li>Fix Java heap exhaustion when parsing TableGroup, sticky Note, or unexpected closing braces.</li>
+              <li>Safely skip unsupported visualization blocks without losing subsequent tables and references.</li>
+              <li>Handle multiline notes and quoted punctuation correctly, preserving diagnostic locations.</li>
+            </ul>
             <h3>1.0.1</h3>
             <ul>
               <li>Support IntelliJ Platform build 262 while retaining compatibility with 241 and later.</li>

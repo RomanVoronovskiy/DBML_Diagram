@@ -4,7 +4,7 @@
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 [![IntelliJ Platform](https://img.shields.io/badge/IntelliJ%20Platform-2024.1--2026.2-purple.svg)](https://plugins.jetbrains.com/)
 
-DBML Diagram is an open-source IntelliJ Platform plugin that shows a realtime SVG entity-relationship diagram next to a `.dbml` file. Version **1.0.1** supports Platform builds **241–262** (2024.1–2026.2) and retains the optional dbdiagram.io synchronization introduced in 1.0.0. Local editing, preview, validation, and exports remain offline. It supports IntelliJ IDEA and DataGrip-compatible Platform IDEs.
+DBML Diagram is an open-source IntelliJ Platform plugin that shows a realtime SVG entity-relationship diagram next to a `.dbml` file. Version **1.0.2** fixes parser heap exhaustion when opening diagrams with visualization blocks, supports Platform builds **241–262** (2024.1–2026.2), and retains the optional dbdiagram.io synchronization introduced in 1.0.0. Local editing, preview, validation, and exports remain offline. It supports IntelliJ IDEA and DataGrip-compatible Platform IDEs.
 
 ## Features
 
@@ -21,6 +21,7 @@ DBML Diagram is an open-source IntelliJ Platform plugin that shows a realtime SV
 - Visible `PK`, `FK`, `UNIQ`, and `NOT_NULL` markers on diagram columns.
 - Light and Darcula-aware diagram colors.
 - DBML file type, icon, comments, and basic syntax highlighting.
+- Triple-single-quoted multiline notes. `TableGroup`, standalone sticky `Note`, and unknown declaration blocks are safely ignored with warnings in the local preview; their visual grouping/sticky-note appearance is not rendered. The original file text is not changed.
 - Optional dbdiagram.io browser login through the official CLI, or a workspace API token stored in IDE PasswordSafe.
 - Search and select remote diagrams in **My Diagrams**, download DBML, link an existing file, and explicitly Pull or Push.
 - Local editing, preview, validation, and SVG/PNG/DDL exports do not require an account, network access, Node.js, or CLI tools.

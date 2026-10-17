@@ -16,6 +16,7 @@ private data class Token(
     val kind: Kind, val text: String, val line: Int, val column: Int, val quote: Char? = null,
     val endLine: Int = line, val endColumn: Int = column + text.length,
 )
+private fun Token.isSymbol(value: String) = kind == Kind.SYMBOL && text == value
 
 private class Lexer(private val source: String) {
     val errors = mutableListOf<DbmlParseError>()
@@ -57,17 +58,25 @@ private class Lexer(private val source: String) {
     }
     private fun quoted() {
         val quote = source[offset]; val startLine = line; val startColumn = column
-        advance(); val value = StringBuilder()
-        while (offset < source.length && source[offset] != quote) {
+        val delimiter = if (quote == '\'' && startsWith("'''")) "'''" else quote.toString()
+        repeat(delimiter.length) { advance() }
+        val value = StringBuilder()
+        while (offset < source.length && !startsWith(delimiter)) {
             if (source[offset] == '\\' && offset + 1 < source.length) {
-                advance(); value.append(source[offset]); advance()
+                advance()
+                if (source[offset] == '\r' && source.getOrNull(offset + 1) == '\n') advance()
+                if (source[offset] == '\n') advanceLine()
+                else { value.append(source[offset]); advance() }
             } else if (source[offset] == '\n') {
                 value.append('\n'); advanceLine()
+            } else if (source[offset] == '\r' && source.getOrNull(offset + 1) == '\n') {
+                advance()
             } else { value.append(source[offset]); advance() }
         }
         if (offset >= source.length) errors += DbmlParseError("Unterminated quoted value", startLine, startColumn, DbmlParseSeverity.ERROR)
-        else advance()
-        tokens += Token(Kind.STRING, value.toString(), startLine, startColumn, quote, line, column)
+        else repeat(delimiter.length) { advance() }
+        val text = if (delimiter.length == 3) value.toString().trimIndent() else value.toString()
+        tokens += Token(Kind.STRING, text, startLine, startColumn, quote, line, column)
     }
     private fun word() {
         val start = offset; val startColumn = column
@@ -91,13 +100,22 @@ private class Parser(private val tokens: List<Token>, initialErrors: List<DbmlPa
     fun parse(): ParseResult {
         while (!atEnd()) {
             skipNewlines()
+            if (atEnd()) break
+            val before = position
             when {
                 matchWord("Project") -> parseProject()
                 matchWord("Table") -> parseTable()
                 matchWord("Enum") -> parseEnum()
                 matchWord("Ref") -> parseReference()
-                atEnd() -> break
-                else -> { warning("Unexpected top-level token '${peek().text}'", peek()); skipLine() }
+                checkWord("TableGroup") || checkWord("Note") -> skipUnsupportedDeclaration(requireBlock = true)
+                checkSymbol("}") -> { error("Unexpected closing '}'", peek()); advance() }
+                else -> skipUnsupportedDeclaration()
+            }
+            // Recovery must always consume input, even for a future unsupported construct.
+            // In particular, skipLine() intentionally leaves '}' for its enclosing block.
+            if (position == before) {
+                error("Unexpected token '${peek().text.take(80)}'", peek())
+                advance()
             }
         }
         val schema = DbmlSchema(project, tables.toList(), enums.toList(), references.toList())
@@ -105,8 +123,28 @@ private class Parser(private val tokens: List<Token>, initialErrors: List<DbmlPa
         return ParseResult(schema, errors.toList())
     }
 
+    /** Ignore visualization/unknown declarations without parsing their contents as schema. */
+    private fun skipUnsupportedDeclaration(requireBlock: Boolean = false) {
+        val start = peek()
+        warning("Unsupported declaration '${start.text.take(80)}' is ignored in the local preview", start)
+        while (!atEnd() && peek().kind != Kind.NEWLINE && !checkSymbol("{") && !checkSymbol("}")) advance()
+        skipNewlines()
+        if (!consumeSymbol("{")) {
+            if (requireBlock) error("Expected '{' after ${start.text}", start)
+            return
+        }
+        var depth = 1
+        while (!atEnd() && depth > 0) {
+            val token = advance()
+            if (token.isSymbol("{")) depth++
+            if (token.isSymbol("}")) depth--
+        }
+        if (depth > 0) error("Unterminated ${start.text.take(80)} block", start)
+    }
+
     private fun parseProject() {
         val name = identifierOrNull()
+        skipNewlines()
         if (!consumeSymbol("{")) { error("Expected '{' after Project", peek()); skipLine(); return }
         val properties = linkedMapOf<String, String>()
         while (!atEnd() && !checkSymbol("}")) {
@@ -126,6 +164,7 @@ private class Parser(private val tokens: List<Token>, initialErrors: List<DbmlPa
         if (matchWord("as")) alias = identifierOrNull()
         val headerSettings = if (consumeSymbol("[")) collectUntilClosingBracket() else emptyList()
         val headerNote = settingValue(headerSettings, "note")
+        skipNewlines()
         if (!consumeSymbol("{")) { error("Expected '{' after table name", peek()); skipLine(); return }
         val columns = mutableListOf<DbmlColumn>()
         val indexes = mutableListOf<DbmlIndex>()
@@ -134,7 +173,7 @@ private class Parser(private val tokens: List<Token>, initialErrors: List<DbmlPa
             skipNewlines(); if (checkSymbol("}")) break
             when {
                 matchWord("indexes") -> indexes += parseIndexes()
-                matchWord("Note") -> { consumeSymbol(":"); blockNote = collectLine().joinToString(" ") { it.text } }
+                matchWord("Note") -> { consumeSymbol(":"); blockNote = collectLine(stopAtBrace = true).joinToString(" ") { it.text } }
                 else -> parseColumn(header, columns)?.let { (column, inlineRefs) ->
                     columns += column
                     references += inlineRefs
@@ -174,15 +213,16 @@ private class Parser(private val tokens: List<Token>, initialErrors: List<DbmlPa
     }
 
     private fun parseIndexes(): List<DbmlIndex> {
+        skipNewlines()
         if (!consumeSymbol("{")) { error("Expected '{' after indexes", peek()); skipLine(); return emptyList() }
         val result = mutableListOf<DbmlIndex>()
         while (!atEnd() && !checkSymbol("}")) {
             skipNewlines(); if (checkSymbol("}")) break
             val line = collectLine(stopAtBrace = true)
             if (line.isEmpty()) continue
-            val settingsStart = line.indexOfFirst { it.text == "[" }
+            val settingsStart = line.indexOfFirst { it.isSymbol("[") }
             val expression = if (settingsStart >= 0) line.take(settingsStart) else line
-            val settings = if (settingsStart >= 0) line.drop(settingsStart + 1).dropLastWhile { it.text == "]" } else emptyList()
+            val settings = if (settingsStart >= 0) line.drop(settingsStart + 1).dropLastWhile { it.isSymbol("]") } else emptyList()
             val names = expression.filter { it.kind == Kind.WORD || it.kind == Kind.STRING }.map { it.text }
             if (names.isNotEmpty()) result += DbmlIndex(
                 columns = names,
@@ -197,6 +237,7 @@ private class Parser(private val tokens: List<Token>, initialErrors: List<DbmlPa
 
     private fun parseEnum() {
         val name = identifierOrNull() ?: run { error("Expected enum name", peek()); skipLine(); return }
+        skipNewlines()
         if (!consumeSymbol("{")) { error("Expected '{' after Enum", peek()); skipLine(); return }
         val values = mutableListOf<String>()
         while (!atEnd() && !checkSymbol("}")) {
@@ -211,6 +252,7 @@ private class Parser(private val tokens: List<Token>, initialErrors: List<DbmlPa
     private fun parseReference() {
         var name: String? = null
         if (!checkSymbol(":") && !checkSymbol("{")) name = identifierOrNull()
+        skipNewlines()
         when {
             consumeSymbol(":") -> parseReferenceExpression(name, collectLine())?.let(references::add)
             consumeSymbol("{") -> {
@@ -224,14 +266,14 @@ private class Parser(private val tokens: List<Token>, initialErrors: List<DbmlPa
     }
 
     private fun parseReferenceExpression(name: String?, expression: List<Token>): DbmlReference? {
-        val settingsStart = expression.indexOfFirst { it.text == "[" }
+        val settingsStart = expression.indexOfFirst { it.isSymbol("[") }
         val endpoints = if (settingsStart >= 0) expression.take(settingsStart) else expression
         val settings = if (settingsStart >= 0) {
-            expression.drop(settingsStart + 1).dropLastWhile { it.text == "]" }
+            expression.drop(settingsStart + 1).dropLastWhile { it.isSymbol("]") }
         } else {
             emptyList()
         }
-        val opIndex = endpoints.indexOfFirst { it.text in setOf(">", "<", "-", "<>") }
+        val opIndex = endpoints.indexOfFirst { it.kind == Kind.SYMBOL && it.text in setOf(">", "<", "-", "<>") }
         if (opIndex < 0) { endpoints.firstOrNull()?.let { error("Reference operator is missing", it) }; return null }
         val left = parseColumnRef(endpoints.take(opIndex))
         val right = parseColumnRef(endpoints.drop(opIndex + 1))
@@ -254,12 +296,12 @@ private class Parser(private val tokens: List<Token>, initialErrors: List<DbmlPa
     }
 
     private fun parseInlineReference(settings: List<Token>, table: Pair<String?, String>, column: String): DbmlReference? {
-        val refIndex = settings.indexOfFirst { it.text.equals("ref", true) }
+        val refIndex = settings.indexOfFirst { it.kind == Kind.WORD && it.text.equals("ref", true) }
         if (refIndex < 0) return null
-        val tail = settings.drop(refIndex + 1).dropWhile { it.text == ":" }
-        val opIndex = tail.indexOfFirst { it.text in setOf(">", "<", "-", "<>") }
+        val tail = settings.drop(refIndex + 1).dropWhile { it.isSymbol(":") }
+        val opIndex = tail.indexOfFirst { it.kind == Kind.SYMBOL && it.text in setOf(">", "<", "-", "<>") }
         if (opIndex < 0) { error("Reference operator is missing", settings[refIndex]); return null }
-        val target = parseColumnRef(tail.drop(opIndex + 1).takeWhile { it.text != "," })
+        val target = parseColumnRef(tail.drop(opIndex + 1).takeWhile { !it.isSymbol(",") })
             ?: run { error("Invalid reference endpoint", settings[refIndex]); return null }
         val source = DbmlColumnRef(table.first, table.second, column)
         val cardinality = when (tail[opIndex].text) {
@@ -275,7 +317,7 @@ private class Parser(private val tokens: List<Token>, initialErrors: List<DbmlPa
             onDelete = settingValue(settings, "delete"),
             onUpdate = settingValue(settings, "update"),
             inline = true,
-            sourceRange = sourceRange(settings.drop(refIndex).takeWhile { it.text != "," }),
+            sourceRange = sourceRange(settings.drop(refIndex).takeWhile { !it.isSymbol(",") }),
         )
     }
 
@@ -314,8 +356,8 @@ private class Parser(private val tokens: List<Token>, initialErrors: List<DbmlPa
         val result = mutableListOf<Token>(); var depth = 1
         while (!atEnd() && depth > 0) {
             val token = advance()
-            if (token.text == "[") depth++
-            if (token.text == "]") depth--
+            if (token.isSymbol("[")) depth++
+            if (token.isSymbol("]")) depth--
             if (depth > 0) result += token
         }
         if (depth > 0) error("Unterminated settings block", peek())
@@ -332,27 +374,27 @@ private class Parser(private val tokens: List<Token>, initialErrors: List<DbmlPa
     private fun settingSegments(items: List<Token>): List<List<Token>> {
         val result = mutableListOf<MutableList<Token>>(mutableListOf()); var depth = 0
         items.forEach { token ->
-            if (token.text == "(") depth++
-            if (token.text == ")") depth--
-            if (token.text == "," && depth == 0) result.add(mutableListOf()) else result.last().add(token)
+            if (token.isSymbol("(")) depth++
+            if (token.isSymbol(")")) depth--
+            if (token.isSymbol(",") && depth == 0) result.add(mutableListOf()) else result.last().add(token)
         }
         return result
     }
     private fun hasSetting(items: List<Token>, key: String) = settingSegments(items).any { segment ->
-        segment.takeWhile { it.text != ":" }.joinToString(" ") { it.text }.trim().equals(key, true)
+        segment.takeWhile { !it.isSymbol(":") }.joinToString(" ") { it.text }.trim().equals(key, true)
     }
     private fun settingValue(items: List<Token>, key: String): String? = settingSegments(items).firstNotNullOfOrNull { segment ->
-        val colon = segment.indexOfFirst { it.text == ":" }
+        val colon = segment.indexOfFirst { it.isSymbol(":") }
         if (colon > 0 && segment.take(colon).joinToString(" ") { it.text }.trim().equals(key, true))
             compact(segment.drop(colon + 1)).trim().ifBlank { null } else null
     }
 
     private fun defaultValue(items: List<Token>): String? {
         val segment = settingSegments(items).firstOrNull { candidate ->
-            val colon = candidate.indexOfFirst { it.text == ":" }
+            val colon = candidate.indexOfFirst { it.isSymbol(":") }
             colon > 0 && candidate.take(colon).joinToString(" ") { it.text }.trim().equals("default", true)
         } ?: return null
-        val colon = segment.indexOfFirst { it.text == ":" }
+        val colon = segment.indexOfFirst { it.isSymbol(":") }
         val valueTokens = segment.drop(colon + 1)
         if (valueTokens.isEmpty()) return null
         return buildString {
@@ -378,8 +420,9 @@ private class Parser(private val tokens: List<Token>, initialErrors: List<DbmlPa
         else if (peek().kind == Kind.NEWLINE) advance()
     }
     private fun identifierOrNull(): String? = if (peek().kind == Kind.WORD || peek().kind == Kind.STRING) advance().text else null
-    private fun matchWord(value: String): Boolean = if (peek().kind == Kind.WORD && peek().text.equals(value, true)) { advance(); true } else false
-    private fun checkSymbol(value: String) = peek().kind == Kind.SYMBOL && peek().text == value
+    private fun checkWord(value: String) = peek().kind == Kind.WORD && peek().text.equals(value, true)
+    private fun matchWord(value: String): Boolean = if (checkWord(value)) { advance(); true } else false
+    private fun checkSymbol(value: String) = peek().isSymbol(value)
     private fun consumeSymbol(value: String): Boolean = if (checkSymbol(value)) { advance(); true } else false
     private fun skipNewlines() { while (peek().kind == Kind.NEWLINE) advance() }
     private fun skipLine() { while (!atEnd() && peek().kind != Kind.NEWLINE && !checkSymbol("}")) advance(); if (peek().kind == Kind.NEWLINE) advance() }
