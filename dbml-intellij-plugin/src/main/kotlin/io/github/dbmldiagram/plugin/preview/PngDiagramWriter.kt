@@ -4,6 +4,11 @@ import org.apache.batik.transcoder.TranscoderInput
 import org.apache.batik.transcoder.TranscoderOutput
 import org.apache.batik.transcoder.image.PNGTranscoder
 import org.apache.batik.bridge.UserAgent
+import org.apache.batik.bridge.ExternalResourceSecurity
+import org.apache.batik.bridge.NoLoadExternalResourceSecurity
+import org.apache.batik.bridge.NoLoadScriptSecurity
+import org.apache.batik.bridge.ScriptSecurity
+import org.apache.batik.util.ParsedURL
 import java.io.ByteArrayOutputStream
 import java.io.StringReader
 import java.nio.file.AtomicMoveNotSupportedException
@@ -33,6 +38,8 @@ internal object PngDiagramWriter {
     }
 
     fun encode(svg: String): ByteArray = ByteArrayOutputStream().use { output ->
+        // Generated diagrams need no DTD/entities. Reject them before Batik's XML parser can resolve anything.
+        require(!Regex("<!\\s*(?:DOCTYPE|ENTITY)\\b", RegexOption.IGNORE_CASE).containsMatchIn(svg)) { "SVG DTD and entity declarations are not allowed" }
         val (width, height) = dimensions(svg)
         // Batik implements SVG 1.1 CSS and silently treats var(...) paints as black.
         // Resolve only generated stylesheet declarations, leaving schema text untouched.
@@ -49,6 +56,8 @@ internal object PngDiagramWriter {
         }
         val transcoder = object : PNGTranscoder() {
             override fun createUserAgent(): UserAgent = object : SVGAbstractTranscoderUserAgent() {
+                override fun getExternalResourceSecurity(resourceURL: ParsedURL?, docURL: ParsedURL?): ExternalResourceSecurity = NoLoadExternalResourceSecurity()
+                override fun getScriptSecurity(scriptType: String?, scriptURL: ParsedURL?, docURL: ParsedURL?): ScriptSecurity = NoLoadScriptSecurity(scriptType)
                 override fun displayError(error: Exception) {
                     throw IllegalStateException("SVG rasterization failed: ${error.message}", error)
                 }
@@ -61,6 +70,7 @@ internal object PngDiagramWriter {
             addTranscodingHint(PNGTranscoder.KEY_WIDTH, width.toFloat())
             addTranscodingHint(PNGTranscoder.KEY_HEIGHT, height.toFloat())
             addTranscodingHint(PNGTranscoder.KEY_ALLOW_EXTERNAL_RESOURCES, false)
+            addTranscodingHint(PNGTranscoder.KEY_EXECUTE_ONLOAD, false)
         }.transcode(TranscoderInput(StringReader(compatibleSvg)).apply { uri = "file:///dbml-diagram.svg" }, TranscoderOutput(output))
         output.toByteArray()
     }

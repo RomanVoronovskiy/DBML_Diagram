@@ -28,7 +28,8 @@ class PackagedPluginPngTest {
         URLConnection.setDefaultUseCaches("jar", false)
         try {
             ZipFile(path).use { zip ->
-                zip.entries().asSequence().filter { it.name.matches(Regex("[^/]+/lib/[^/]+\\.jar")) }.forEach { entry ->
+                zip.entries().asSequence().filter { it.name.matches(Regex("[^/]+/lib/(?:modules/)?[^/]+\\.jar")) }.forEach { entry ->
+                    assertFalse("Distribution must use the host IDE's Kotlin runtime", entry.name.substringAfterLast('/').startsWith("kotlin-"))
                     val jar = directory.resolve(entry.name.substringAfterLast('/'))
                     zip.getInputStream(entry).use { Files.copy(it, jar) }
                     jars.add(jar)

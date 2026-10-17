@@ -9,6 +9,13 @@ import javax.swing.JTable
 import javax.swing.JTextField
 
 class CloudPanelTest : BasePlatformTestCase() {
+    fun testFactoryDoesNotGenerateInternalIdeDefaultMethodForwarders() {
+        val methods = DbdiagramToolWindowFactory::class.java.declaredMethods.map { it.name }
+        assertTrue(methods.contains("createToolWindowContent"))
+        for (internalMethod in listOf("manage", "getAnchor", "getIcon", "isDoNotActivateOnStart")) {
+            assertFalse("Compiler generated an IDE default-method forwarder: $internalMethod", methods.contains(internalMethod))
+        }
+    }
     private fun children(root: Component): List<Component> = listOf(root) + if (root is Container) root.components.flatMap(::children) else emptyList()
     fun testListSearchIsLiteralAndNonEditable() {
         val panel = DbdiagramPanel(project)

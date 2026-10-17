@@ -5,6 +5,16 @@ updates:
     schedule:
       interval: weekly
     open-pull-requests-limit: 5
+    groups:
+      batik:
+        patterns:
+          - "org.apache.xmlgraphics:*"
+      build-toolchain:
+        patterns:
+          - "jvm"
+          - "org.jetbrains.kotlin*"
+          - "org.jetbrains.intellij.platform"
+          - "gradle-wrapper"
 
   - package-ecosystem: github-actions
     directory: /

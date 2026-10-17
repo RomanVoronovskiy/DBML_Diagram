@@ -4,6 +4,26 @@ All notable changes to DBML Diagram are documented in this file. The project fol
 
 ## [Unreleased]
 
+## [1.0.1] - 2026-10-14
+
+### Changed
+
+- Extend the supported IntelliJ Platform range from 241–261 to 241–262; retain all 1.0.0 cloud features.
+- Update Apache Batik codec/transcoder from 1.17 to 1.19, IntelliJ Platform Gradle Plugin from 2.2.1 to 2.19.0, Kotlin from 2.0.21 to 2.4.21, and Gradle from 8.10.2 to 9.7.0 as a coordinated, supported build-toolchain set.
+- Pin the official Gradle distribution checksum, regenerate wrapper scripts/JAR, and enable the local Gradle build cache.
+- Keep JVM 17 bytecode and Kotlin source/API level 2.0; compile core against IDE 2024.1's stdlib 1.9.22 without shipping a duplicate runtime.
+- Reuse a single cached parse result for layout-only refreshes and stop obsolete preview jobs before layout, SVG rendering, or UI delivery.
+- Group coordinated Dependabot updates for Batik and the build toolchain; document the audit of PRs #5–#9.
+
+### Fixed
+
+- Ignore rendering requests after disposal and treat cancellation/interruption as cancellation, not preview errors.
+- Reject SVG DTD/entity declarations before PNG parsing, deny external resources at the Batik user-agent boundary, and explicitly disable on-load script execution.
+- Migrate the newer Gradle plugin's verification DSL and allow local IDE verification without first downloading the remote matrix.
+- Provide explicit test-only Kotlin runtime/JUnit Platform launcher dependencies for standalone tests with the new build tooling.
+- Extend packaged ZIP tests to module JARs; add regression tests for render caching, superseded work, disposal, and PNG resource restrictions.
+- Inherit IDE interface defaults instead of generating compiler forwarders to internal/experimental tool-window APIs; guard the compiled factory method set in a regression test.
+
 ## [1.0.0] - 2026-10-07
 
 ### Added
@@ -73,7 +93,8 @@ All notable changes to DBML Diagram are documented in this file. The project fol
 - Support for tables, columns, indexes, enums, inline and global references, comments, notes, and common column settings.
 - Reference action parsing for constructs such as `[delete: cascade]`.
 
-[Unreleased]: https://github.com/RomanVoronovskiy/DBML_Diagram/compare/v1.0.0...HEAD
+[Unreleased]: https://github.com/RomanVoronovskiy/DBML_Diagram/compare/v1.0.1...HEAD
+[1.0.1]: https://github.com/RomanVoronovskiy/DBML_Diagram/compare/v1.0.0...v1.0.1
 [1.0.0]: https://github.com/RomanVoronovskiy/DBML_Diagram/compare/v0.3.0...v1.0.0
 [0.3.0]: https://github.com/RomanVoronovskiy/DBML_Diagram/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/RomanVoronovskiy/DBML_Diagram/compare/v0.1.0...v0.2.0
