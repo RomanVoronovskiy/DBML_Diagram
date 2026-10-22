@@ -16,6 +16,7 @@ data class DbmlTable(
     val note: String? = null,
     val columns: List<DbmlColumn> = emptyList(),
     val indexes: List<DbmlIndex> = emptyList(),
+    val checks: List<DbmlCheck> = emptyList(),
 ) {
     val qualifiedName: String get() = schema?.let { "$it.$name" } ?: name
 }
@@ -29,7 +30,10 @@ data class DbmlColumn(
     val increment: Boolean = false,
     val defaultValue: String? = null,
     val note: String? = null,
+    val checks: List<DbmlCheck> = emptyList(),
 )
+
+data class DbmlCheck(val expression: String, val name: String? = null, val sourceRange: DbmlSourceRange? = null)
 
 data class DbmlIndex(
     val columns: List<String>,
@@ -53,10 +57,10 @@ data class DbmlReference(
     fun routeId(): String = listOf(
         name.orEmpty(),
         from.tableName,
-        from.column,
+        from.routingColumns,
         cardinality.name,
         to.tableName,
-        to.column,
+        to.routingColumns,
     ).joinToString("|")
 
     /** Column that owns the physical foreign-key constraint, when the relation maps to one. */
@@ -76,8 +80,16 @@ data class DbmlReference(
     }
 }
 
-data class DbmlColumnRef(val schema: String? = null, val table: String, val column: String) {
+data class DbmlColumnRef(
+    val schema: String? = null,
+    val table: String,
+    val column: String,
+    val additionalColumns: List<String> = emptyList(),
+) {
     val tableName: String get() = schema?.let { "$it.$table" } ?: table
+    val columns: List<String> get() = listOf(column) + additionalColumns
+    val displayName: String get() = "$tableName." + if (additionalColumns.isEmpty()) column else columns.joinToString(", ", "(", ")")
+    internal val routingColumns: String get() = if (additionalColumns.isEmpty()) column else columns.joinToString("", "tuple:") { "${it.length}:$it" }
 }
 
 enum class DbmlCardinality { ONE_TO_ONE, ONE_TO_MANY, MANY_TO_ONE, MANY_TO_MANY }

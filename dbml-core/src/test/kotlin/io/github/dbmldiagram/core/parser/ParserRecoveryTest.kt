@@ -41,6 +41,7 @@ class ParserRecoveryTest {
     @Test fun `references retain line numbers after ignored multiline blocks`() = verify("locations")
     @Test fun `large schema with visualization blocks parses lays out and renders`() = verify("large-schema")
     @Test fun `malformed generated input has bounded diagnostics and always terminates`() = verify("malformed-input")
+    @Test fun `CHECK blocks and composite references remain bounded in complex schemas`() = verify("complex-constraints")
 }
 
 object ParserRecoveryProbe {
@@ -231,10 +232,32 @@ object ParserRecoveryProbe {
                 check(layout.nodes.size == 72 && layout.edges.size == 71)
                 check(Regex("data-table=").findAll(svg).count() == 72)
             }
+            "complex-constraints" -> {
+                val source = buildString {
+                    repeat(60) { table ->
+                        appendLine("Table t$table {")
+                        appendLine(" a uuid [pk]")
+                        appendLine(" b uuid [pk]")
+                        appendLine(" parent_a uuid")
+                        appendLine(" parent_b uuid")
+                        appendLine(" value integer [check: `value >= 0`]")
+                        appendLine(" checks { `value < 100` [name: 'ck_$table'] }")
+                        appendLine("}")
+                        if (table > 0) appendLine("Ref: t$table.(parent_a, parent_b) > t${table - 1}.(a, b)")
+                    }
+                }
+                val result = parser.parse(source)
+                check(!result.hasErrors) { result.errors.toString() }
+                val schema = result.schema!!
+                check(schema.tables.sumOf { it.checks.size } == 60)
+                check(schema.references.size == 59)
+                val svg = SvgDiagramRenderer().render(schema, LayeredDiagramLayoutEngine().layout(schema))
+                check("CHECK (2)" in svg && svg.length < 1_000_000)
+            }
             "malformed-input" -> {
                 val random = Random(1729)
                 val tokens = listOf("}", "{", "[", "]", "(", ")", "\n", "Table", "Note", "TableGroup",
-                    "Enum", "Project", "Ref", "indexes", "FutureFeature", "id", "'text'", "'''text'''", ":", ",", ">")
+                    "Enum", "Project", "Ref", "indexes", "checks", "`id > 0`", "FutureFeature", "id", "'text'", "'''text'''", ":", ",", ">")
                 repeat(300) {
                     val source = List(50) { tokens.random(random) }.joinToString(" ")
                     val result = parser.parse(source)

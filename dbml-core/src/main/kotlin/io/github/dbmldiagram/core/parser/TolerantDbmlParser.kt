@@ -168,11 +168,13 @@ private class Parser(private val tokens: List<Token>, initialErrors: List<DbmlPa
         if (!consumeSymbol("{")) { error("Expected '{' after table name", peek()); skipLine(); return }
         val columns = mutableListOf<DbmlColumn>()
         val indexes = mutableListOf<DbmlIndex>()
+        val checks = mutableListOf<DbmlCheck>()
         var blockNote: String? = null
         while (!atEnd() && !checkSymbol("}")) {
             skipNewlines(); if (checkSymbol("}")) break
             when {
                 matchWord("indexes") -> indexes += parseIndexes()
+                matchWord("checks") -> checks += parseChecks()
                 matchWord("Note") -> { consumeSymbol(":"); blockNote = collectLine(stopAtBrace = true).joinToString(" ") { it.text } }
                 else -> parseColumn(header, columns)?.let { (column, inlineRefs) ->
                     columns += column
@@ -181,7 +183,15 @@ private class Parser(private val tokens: List<Token>, initialErrors: List<DbmlPa
             }
         }
         closeBlock("Table ${header.second}")
-        tables += DbmlTable(header.first, header.second, alias, headerNote ?: blockNote, columns, indexes)
+        val checkNames = mutableSetOf<String>()
+        (checks + columns.flatMap { it.checks }).forEach { check ->
+            if (check.name != null && !checkNames.add(check.name.lowercase())) {
+                val range = check.sourceRange
+                errors += DbmlParseError("Duplicate CHECK constraint name '${check.name}'", range?.line ?: 1,
+                    range?.column ?: 1, DbmlParseSeverity.ERROR)
+            }
+        }
+        tables += DbmlTable(header.first, header.second, alias, headerNote ?: blockNote, columns, indexes, checks)
     }
 
     private fun parseColumn(table: Pair<String?, String>, existing: List<DbmlColumn>): Pair<DbmlColumn, List<DbmlReference>>? {
@@ -206,10 +216,45 @@ private class Parser(private val tokens: List<Token>, initialErrors: List<DbmlPa
             nullable = explicitlyNull || !notNull, unique = hasSetting(settings, "unique"),
             increment = hasSetting(settings, "increment"), defaultValue = defaultValue(settings),
             note = settingValue(settings, "note"),
+            checks = settingSegments(settings).filter { it.firstOrNull()?.text.equals("check", true) }.mapNotNull { segment ->
+                if (segment.getOrNull(1)?.isSymbol(":") != true) {
+                    error("Expected ':' after check", segment.first())
+                    return@mapNotNull null
+                }
+                val expression = segment.drop(2)
+                parseCheckExpression(expression, emptyList(), segment.first())
+            },
         )
         if (existing.any { it.name.equals(name, true) }) warning("Duplicate column '$name' in table '${table.second}'", start)
         val inline = settingSegments(settings).mapNotNull { parseInlineReference(it, table, name) }
         return column to inline
+    }
+
+    private fun parseChecks(): List<DbmlCheck> {
+        skipNewlines()
+        if (!consumeSymbol("{")) { error("Expected '{' after checks", peek()); skipLine(); return emptyList() }
+        val checks = mutableListOf<DbmlCheck>()
+        while (!atEnd() && !checkSymbol("}")) {
+            skipNewlines(); if (checkSymbol("}") || atEnd()) break
+            val start = advance()
+            val settings = if (consumeSymbol("[")) collectUntilClosingBracket() else emptyList()
+            parseCheckExpression(listOf(start), settings, start)?.let(checks::add)
+            if (!atEnd() && peek().kind != Kind.NEWLINE && !checkSymbol("}")) {
+                error("Unexpected token after CHECK expression", peek())
+                skipLine()
+            }
+        }
+        closeBlock("checks")
+        return checks
+    }
+
+    private fun parseCheckExpression(expression: List<Token>, settings: List<Token>, start: Token): DbmlCheck? {
+        val value = expression.singleOrNull()
+        if (value == null || value.kind != Kind.STRING || value.quote != '`' || value.text.isBlank()) {
+            error("CHECK requires a nonempty backtick-quoted SQL expression", start)
+            return null
+        }
+        return DbmlCheck(value.text, settingValue(settings, "name"), sourceRange(listOf(start) + expression + settings))
     }
 
     private fun parseIndexes(): List<DbmlIndex> {
@@ -301,7 +346,7 @@ private class Parser(private val tokens: List<Token>, initialErrors: List<DbmlPa
         val tail = settings.drop(refIndex + 1).dropWhile { it.isSymbol(":") }
         val opIndex = tail.indexOfFirst { it.kind == Kind.SYMBOL && it.text in setOf(">", "<", "-", "<>") }
         if (opIndex < 0) { error("Reference operator is missing", settings[refIndex]); return null }
-        val target = parseColumnRef(tail.drop(opIndex + 1).takeWhile { !it.isSymbol(",") })
+        val target = parseColumnRef(tail.drop(opIndex + 1))
             ?: run { error("Invalid reference endpoint", settings[refIndex]); return null }
         val source = DbmlColumnRef(table.first, table.second, column)
         val cardinality = when (tail[opIndex].text) {
@@ -317,12 +362,28 @@ private class Parser(private val tokens: List<Token>, initialErrors: List<DbmlPa
             onDelete = settingValue(settings, "delete"),
             onUpdate = settingValue(settings, "update"),
             inline = true,
-            sourceRange = sourceRange(settings.drop(refIndex).takeWhile { !it.isSymbol(",") }),
+            sourceRange = sourceRange(settings.drop(refIndex)),
         )
     }
 
     private fun parseColumnRef(tokens: List<Token>): DbmlColumnRef? {
-        val parts = tokens.filter { it.kind == Kind.WORD || it.kind == Kind.STRING }.map { it.text }
+        var cursor = 0
+        fun identifier(): String? = tokens.getOrNull(cursor)?.takeIf {
+            it.kind == Kind.WORD || (it.kind == Kind.STRING && it.quote != '`')
+        }?.also { cursor++ }?.text
+        fun symbol(value: String): Boolean = if (tokens.getOrNull(cursor)?.isSymbol(value) == true) { cursor++; true } else false
+        val parts = mutableListOf(identifier() ?: return null)
+        while (symbol(".")) {
+            if (symbol("(")) {
+                if (parts.size !in 1..2) return null
+                val columns = mutableListOf(identifier() ?: return null)
+                while (symbol(",")) columns += identifier() ?: return null
+                if (!symbol(")") || cursor != tokens.size) return null
+                return DbmlColumnRef(parts.takeIf { it.size == 2 }?.first(), parts.last(), columns.first(), columns.drop(1))
+            }
+            parts += identifier() ?: return null
+        }
+        if (cursor != tokens.size) return null
         return when (parts.size) {
             2 -> DbmlColumnRef(table = parts[0], column = parts[1])
             3 -> DbmlColumnRef(schema = parts[0], table = parts[1], column = parts[2])

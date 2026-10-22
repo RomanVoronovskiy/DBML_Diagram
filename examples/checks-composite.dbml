@@ -1,0 +1,26 @@
+// Public synthetic example; no private reproduction data.
+Project constraints_demo {
+  database_type: 'PostgreSQL'
+}
+
+Table departments {
+  id uuid
+  tenant_id uuid
+  name varchar(100) [not null]
+  indexes {
+    (id, tenant_id) [pk]
+  }
+}
+
+Table tasks {
+  id uuid [pk]
+  department_id uuid [not null]
+  tenant_id uuid [not null]
+  planned integer [check: `planned >= 0`]
+  completed integer
+  checks {
+    `completed IS NULL OR completed BETWEEN 0 AND planned` [name: 'ck_task_completed']
+  }
+}
+
+Ref fk_task_department: tasks.(department_id, tenant_id) > departments.(id, tenant_id) [delete: cascade]

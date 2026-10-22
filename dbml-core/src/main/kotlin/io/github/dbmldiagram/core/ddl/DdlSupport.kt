@@ -1,16 +1,37 @@
 package io.github.dbmldiagram.core.ddl
 
 import io.github.dbmldiagram.core.model.DbmlColumnRef
+import io.github.dbmldiagram.core.model.DbmlColumn
 import io.github.dbmldiagram.core.model.DbmlSchema
 import io.github.dbmldiagram.core.model.DbmlTable
-import io.github.dbmldiagram.core.validation.isColumnUnique
+import io.github.dbmldiagram.core.validation.isColumnsUnique
 
 internal fun primaryKeyColumns(table: DbmlTable): List<String> =
     table.indexes.firstOrNull { it.primaryKey }?.columns
         ?: table.columns.filter { it.primaryKey }.map { it.name }
 
-internal fun isUnique(table: DbmlTable, column: String): Boolean =
-    table.isColumnUnique(column)
+internal fun isUnique(table: DbmlTable, columns: List<String>): Boolean = table.isColumnsUnique(columns)
+
+internal fun resolveColumns(table: DbmlTable?, reference: DbmlColumnRef): List<DbmlColumn>? {
+    if (table == null || reference.columns.map(String::lowercase).distinct().size != reference.columns.size) return null
+    return reference.columns.map { name -> table.columns.firstOrNull { it.name.equals(name, true) } ?: return null }
+}
+
+internal fun checkDefinitions(table: DbmlTable, quote: (String) -> String, maxNameLength: Int): List<String> {
+    val checks = table.checks + table.columns.flatMap { it.checks }
+    val used = checks.mapNotNull { it.name?.lowercase() }.toMutableSet()
+    var ordinal = 0
+    return checks.map { check ->
+        require(check.expression.isNotBlank()) { "CHECK expression must not be empty" }
+        val constraintName = check.name ?: run {
+            var generated: String
+            do { generated = safeName("chk${++ordinal}", table.name, emptyList(), maxNameLength) }
+            while (!used.add(generated.lowercase()))
+            generated
+        }
+        "    CONSTRAINT ${quote(constraintName)} CHECK (${check.expression})"
+    }
+}
 
 internal fun resolveTable(schema: DbmlSchema, reference: DbmlColumnRef): DbmlTable? =
     schema.tables.firstOrNull {
@@ -37,4 +58,4 @@ internal fun safeName(prefix: String, table: String, parts: List<String>, maxLen
 
 internal fun sqlString(value: String): String = "'${value.replace("'", "''")}'"
 
-internal fun display(reference: DbmlColumnRef): String = "${reference.tableName}.${reference.column}"
+internal fun display(reference: DbmlColumnRef): String = reference.displayName
