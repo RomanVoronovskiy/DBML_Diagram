@@ -16,6 +16,8 @@
   <li>Choose an attachment side by dragging an endpoint or clicking a table-side anchor</li>
   <li>Automatically reroute relationship lines around table cards as the layout changes</li>
   <li>Keep custom table positions and relationship routes between preview refreshes</li>
+  <li>Organize tables with named, colored TableGroup frames and group-aware automatic layout</li>
+  <li>Resize group frames live as tables move; keep group labels and colors in SVG/PNG exports</li>
   <li>Pan, zoom, fit, reset, and refresh the diagram</li>
   <li>Export the complete diagram as SVG or PNG</li>
 </ul>
@@ -55,7 +57,7 @@
   Keep database schemas together with source code, review schema changes, and maintain DBML documentation without leaving the IDE.
 </p>
 <p>
-  Version 1.0.3 improves complex-schema processing with CHECK constraints and composite foreign keys: parsing, whole-key validation, diagram indicators, and complete SQL exports. CHECK expressions are preserved, not evaluated or translated between SQL dialects. TableGroup and standalone sticky Note blocks remain safely ignored with warnings in the local preview. Supports IntelliJ Platform builds 241–262 (2024.1–2026.2).
+  Version 2.0.0 visualizes TableGroup declarations as colored frames with names and member counts, with group-aware layout and live resizing. Custom hex colors and a default palette work in light/dark previews and SVG/PNG exports. Saved table positions remain in effect; Reset layout applies the new grouping. Group membership is defined by DBML, not by dragging a table into a frame. Standalone sticky Note blocks remain unsupported. CHECK constraints, composite foreign keys, SQL exports, and optional dbdiagram.io sync are retained. CHECK expressions are preserved, not evaluated or translated between SQL dialects. Supports IntelliJ Platform builds 241–262 (2024.1–2026.2).
 </p>
 
 <p>

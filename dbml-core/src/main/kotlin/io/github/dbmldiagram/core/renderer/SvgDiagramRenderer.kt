@@ -4,6 +4,7 @@ import io.github.dbmldiagram.core.layout.DiagramLayout
 import io.github.dbmldiagram.core.layout.DiagramPoint
 import io.github.dbmldiagram.core.layout.TableNode
 import io.github.dbmldiagram.core.layout.TableSide
+import io.github.dbmldiagram.core.layout.TableGroupGeometry
 import io.github.dbmldiagram.core.layout.relationshipAnchor
 import io.github.dbmldiagram.core.model.DbmlCardinality
 import io.github.dbmldiagram.core.model.DbmlReference
@@ -26,6 +27,23 @@ class SvgDiagramRenderer : DiagramRenderer {
             } ?: return@flatMap emptyList()
             endpoint.columns.map { "${table.qualifiedName}.$it".lowercase() }
         }.toSet()
+
+        append("""<defs><style>.table-group{pointer-events:none}.table-group-label{pointer-events:visiblePainted;font:600 14px -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;fill:var(--dbml-text,#24292f)}.table-group-count{font:11px -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;fill:var(--dbml-muted,#65717e)}</style></defs>""")
+        // Frames sit behind cards and relationships; they are not routing or dragging targets.
+        layout.groups.forEach { node ->
+            val group = node.group
+            val color = TableGroupGeometry.color(group)
+            val ids = node.tableIds.joinToString(",", "[", "]", transform = ::jsonString)
+            append("<g class=\"table-group\" data-table-group=\"").append(escape(group.qualifiedName))
+                .append("\" data-tables=\"").append(escape(ids))
+                .append("\" data-min-width=\"").append(TableGroupGeometry.minimumWidth(group, node.tableIds.size)).append("\">")
+            append("<title>").append(escape(group.qualifiedName + (group.note?.let { "\n$it" } ?: ""))).append("</title>")
+            append("<rect class=\"table-group-frame\" x=\"${node.x}\" y=\"${node.y}\" width=\"${node.width}\" height=\"${node.height}\" rx=\"12\" fill=\"$color\" fill-opacity=\"0.07\" stroke=\"$color\" stroke-width=\"2\" stroke-opacity=\"0.85\"/>")
+            append("<circle class=\"table-group-dot\" cx=\"${node.x + 18}\" cy=\"${node.y + 20}\" r=\"4\" fill=\"$color\"/>")
+            append("<text class=\"table-group-label\" x=\"${node.x + 32}\" y=\"${node.y + 25}\">${escape(TableGroupGeometry.label(group.qualifiedName))}</text>")
+            append("<text class=\"table-group-count\" text-anchor=\"end\" x=\"${node.x + node.width - 16}\" y=\"${node.y + 25}\">${node.tableIds.size} ${if (node.tableIds.size == 1) "table" else "tables"}</text>")
+            append("</g>")
+        }
 
         layout.nodes.forEach { node ->
             val table = schema.tables.first { it.qualifiedName.equals(node.tableId, true) }
@@ -157,5 +175,18 @@ class SvgDiagramRenderer : DiagramRenderer {
         }
     }
 
+    private fun jsonString(value: String): String = buildString {
+        append('"')
+        value.forEach { c ->
+            when (c) {
+                '\\' -> append("\\\\")
+                '"' -> append("\\\"")
+                else -> if (c < ' ') append("\\u%04x".format(c.code)) else append(c)
+            }
+        }
+        append('"')
+    }
+
     private fun escape(value: String): String = value.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace("\"", "&quot;").replace("'", "&apos;")
+        .replace("\n", "&#10;").replace("\r", "&#13;").replace("\t", "&#9;")
 }

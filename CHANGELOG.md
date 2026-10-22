@@ -4,6 +4,18 @@ All notable changes to DBML Diagram are documented in this file. The project fol
 
 ## [Unreleased]
 
+## [2.0.0] - 2026-10-22
+
+### Colored TableGroup visualization
+
+- Render `TableGroup` declarations as named, rounded frames with a subtle tinted background and member counts. Accept `#rgb`/`#rrggbb` colors and use a stable name-based palette when no valid color is supplied.
+- Parse quoted group/member names, schema-qualified tables, aliases, forward-declared members, header notes, and inline/block group notes. Group names and notes are escaped before rendering; paint values cannot inject URLs or markup.
+- Pack groups into separate blocks in automatic layout; keep ungrouped tables outside those blocks. Existing diagrams without groups retain the previous layout. Personal saved table positions still take precedence; **Reset layout** reapplies group-aware placement.
+- Resize group frames during table dragging and after restoring positions. Keep frames behind cards and relationships, preserve four-side attachment and obstacle routing, and include complete frame bounds in Fit/SVG/PNG output.
+- Warn at the source location for missing, duplicate, or shared members and invalid colors. Empty groups draw no frame. If a table belongs to several groups, the first group owns its automatic position and overlapping frames are possible. Manual overlapping table positions are preserved rather than silently rearranged.
+- Keep groups visualization-only: PostgreSQL/MySQL/Oracle DDL output is unchanged. Standalone sticky `Note` declarations remain unsupported with warnings; group notes are available in SVG title tooltips.
+- Highlight `TableGroup` and `checks` keywords. Add core, bounded-heap, real-pointer browser, and packaged-PNG regression coverage, plus a synthetic public example and light/dark screenshots for a future walkthrough.
+
 ## [1.0.3] - 2026-10-22
 
 ### Schema processing improvements and CHECK constraints

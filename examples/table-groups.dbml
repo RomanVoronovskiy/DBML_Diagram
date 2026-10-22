@@ -1,0 +1,58 @@
+// Public synthetic showcase for DBML Diagram 2.0.0. No real customer data.
+Project storefront {
+  database_type: 'PostgreSQL'
+  Note: 'Domain boundaries with TableGroup; all arrows connect foreign keys to referenced keys.'
+}
+
+TableGroup Identity [color: #3b82f6, note: 'Customers and their saved delivery addresses'] {
+  customers
+  addresses
+}
+
+TableGroup Catalog [color: #10b981] {
+  categories
+  products
+  Note: 'The product catalog is independent of order history.'
+}
+
+TableGroup Sales [color: #a78bfa] {
+  orders
+  order_items
+}
+
+Table customers {
+  id uuid [pk]
+  email varchar(255) [not null, unique]
+  name varchar(120)
+}
+
+Table addresses {
+  id uuid [pk]
+  customer_id uuid [not null, ref: > customers.id]
+  city varchar(120) [not null]
+}
+
+Table categories {
+  id uuid [pk]
+  name varchar(120) [not null, unique]
+}
+
+Table products {
+  id uuid [pk]
+  category_id uuid [not null, ref: > categories.id]
+  name varchar(120) [not null]
+  price decimal(12,2) [not null, check: `price >= 0`]
+}
+
+Table orders {
+  id uuid [pk]
+  customer_id uuid [not null, ref: > customers.id]
+  created_at timestamp [not null]
+}
+
+Table order_items {
+  id uuid [pk]
+  order_id uuid [not null, ref: > orders.id]
+  product_id uuid [not null, ref: > products.id]
+  quantity integer [not null, check: `quantity > 0`]
+}

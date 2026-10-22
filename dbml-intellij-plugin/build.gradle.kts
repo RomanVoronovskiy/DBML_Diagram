@@ -77,6 +77,14 @@ intellijPlatform {
 tasks {
     patchPluginXml {
         changeNotes = """
+            <h3>2.0.0 — Colored TableGroup frames</h3>
+            <ul>
+              <li>Render named TableGroup frames with custom colors or a stable default palette.</li>
+              <li>Arrange groups as separate auto-layout blocks and resize frames live when member tables move.</li>
+              <li>Keep labels, colors, and group bounds in standalone SVG and PNG exports, including restored table positions.</li>
+              <li>Support group notes, quoted/schema-qualified members, aliases, and source-located membership warnings.</li>
+              <li>Include a public, synthetic showcase for documenting and demonstrating the feature; preserve offline editing, CHECK constraints, composite keys, and optional dbdiagram.io sync.</li>
+            </ul>
             <h3>1.0.3 — Schema processing improvements and CHECK constraints</h3>
             <ul>
               <li>Support named CHECK constraint blocks and inline checks; preserve expressions in SQL exports.</li>
@@ -137,6 +145,7 @@ tasks {
 
 tasks.test {
     systemProperty("dbml.preview.fixture", layout.buildDirectory.file("reports/preview-fixture.html").get().asFile.absolutePath)
+    systemProperty("dbml.groups.example", rootProject.file("examples/table-groups.dbml").absolutePath)
 }
 
 tasks.register<Test>("testPackagedPlugin") {

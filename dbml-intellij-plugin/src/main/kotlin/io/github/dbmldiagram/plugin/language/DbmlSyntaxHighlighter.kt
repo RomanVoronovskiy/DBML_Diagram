@@ -47,7 +47,7 @@ private class DbmlHighlightingLexer : LexerBase() {
     private var start = 0
     private var tokenEnd = 0
     private var tokenType: IElementType? = null
-    private val keywords = setOf("project", "table", "enum", "ref", "indexes", "note", "as")
+    private val keywords = setOf("project", "table", "tablegroup", "enum", "ref", "indexes", "checks", "note", "as")
     private val types = setOf("uuid", "bigint", "integer", "varchar", "text", "boolean", "double", "real", "decimal", "numeric", "timestamp", "timestamptz")
 
     override fun start(buffer: CharSequence, startOffset: Int, endOffset: Int, initialState: Int) {

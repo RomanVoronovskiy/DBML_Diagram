@@ -73,7 +73,9 @@ object ParserRecoveryProbe {
                 check(result.canRender)
                 check(result.schema!!.tables.map { it.name } == listOf("users", "orders"))
                 check(result.schema.references.size == 1)
-                check(result.errors.size == 3)
+                check(result.schema.tableGroups.size == 2)
+                // Sticky Note is unsupported; the shared table produces a membership warning.
+                check(result.errors.size == 2)
                 check(result.errors.all { it.severity == DbmlParseSeverity.WARNING })
             }
             "unknown-blocks" -> {
@@ -178,6 +180,7 @@ object ParserRecoveryProbe {
             "unterminated" -> {
                 for (source in listOf(
                     "TableGroup unfinished {\n nested { }",
+                    "TableGroup unfinished {\n missing_table",
                     "Note unfinished {\n'''not closed\n} Table phantom { id int }",
                     "Table actual {\n id int [note: 'open'",
                     "TableGroup missing_body\nTable actual { id int }",
@@ -186,7 +189,7 @@ object ParserRecoveryProbe {
                     check(result.hasErrors && !result.canRender)
                     check(result.errors.size in 1..4) { result.errors.toString() }
                 }
-                val result = parser.parse("\nTableGroup unfinished {\n nested { }")
+                val result = parser.parse("\nTableGroup unfinished {\n missing_table")
                 check(result.errors.single { it.severity == DbmlParseSeverity.ERROR }.line == 2)
             }
             "locations" -> {
@@ -226,7 +229,7 @@ object ParserRecoveryProbe {
                 val schema = result.schema!!
                 check(schema.tables.size == 72 && schema.references.size == 71)
                 check(schema.tables.sumOf { it.columns.size } == 1007)
-                check(result.errors.size == 2)
+                check(result.errors.size == 1)
                 val layout = LayeredDiagramLayoutEngine().layout(schema)
                 val svg = SvgDiagramRenderer().render(schema, layout)
                 check(layout.nodes.size == 72 && layout.edges.size == 71)
@@ -234,6 +237,11 @@ object ParserRecoveryProbe {
             }
             "complex-constraints" -> {
                 val source = buildString {
+                    repeat(12) { group ->
+                        appendLine("TableGroup domain_$group [color: #456] {")
+                        repeat(5) { appendLine(" t${group * 5 + it}") }
+                        appendLine("}")
+                    }
                     repeat(60) { table ->
                         appendLine("Table t$table {")
                         appendLine(" a uuid [pk]")
@@ -251,7 +259,9 @@ object ParserRecoveryProbe {
                 val schema = result.schema!!
                 check(schema.tables.sumOf { it.checks.size } == 60)
                 check(schema.references.size == 59)
-                val svg = SvgDiagramRenderer().render(schema, LayeredDiagramLayoutEngine().layout(schema))
+                val layout = LayeredDiagramLayoutEngine().layout(schema)
+                check(layout.groups.size == 12)
+                val svg = SvgDiagramRenderer().render(schema, layout)
                 check("CHECK (2)" in svg && svg.length < 1_000_000)
             }
             "malformed-input" -> {

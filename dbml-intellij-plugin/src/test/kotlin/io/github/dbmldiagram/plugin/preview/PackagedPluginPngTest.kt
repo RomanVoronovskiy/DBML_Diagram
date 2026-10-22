@@ -58,6 +58,8 @@ class PackagedPluginPngTest {
                       checks { `quantity < 100` [name: 'ck_quantity'] }
                     }
                     Ref: orders.(user_id, tenant_id) > users.(id, tenant_id)
+                    TableGroup Accounts [color: #3b82f6] { users }
+                    TableGroup Sales [color: #10b981] { orders }
                 """.trimIndent()
                 // Exercise the core model/parser/renderer from the actual ZIP as well as its PNG writer.
                 val parserClass = loader.loadClass("io.github.dbmldiagram.core.parser.TolerantDbmlParser")
@@ -72,6 +74,8 @@ class PackagedPluginPngTest {
                 val svg = rendererClass.getMethod("render", schema.javaClass, layout.javaClass).invoke(rendererClass.getConstructor().newInstance(), schema, layout) as String
                 assertTrue(svg.contains("CHECK (2)"))
                 assertTrue(svg.contains("FK orders.(user_id, tenant_id)"))
+                assertTrue(svg.contains("data-table-group=\"Accounts\""))
+                assertTrue(svg.contains("stroke=\"#10b981\""))
                 val writer = loader.loadClass("io.github.dbmldiagram.plugin.preview.PngDiagramWriter")
                 assertSame(loader, writer.classLoader)
                 val bytes = writer.getMethod("encode", String::class.java).invoke(writer.getField("INSTANCE").get(null), svg) as ByteArray

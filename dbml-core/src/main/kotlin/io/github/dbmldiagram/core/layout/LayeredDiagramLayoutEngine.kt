@@ -4,6 +4,7 @@ import io.github.dbmldiagram.core.model.DbmlColumnRef
 import io.github.dbmldiagram.core.model.DbmlSchema
 import io.github.dbmldiagram.core.model.DbmlTable
 import kotlin.math.max
+import kotlin.math.sqrt
 
 /** Deterministic, dependency-free layered layout suitable for offline previews. */
 class LayeredDiagramLayoutEngine(
@@ -53,13 +54,20 @@ class LayeredDiagramLayoutEngine(
             }
             x += columnWidth + horizontalGap
         }
+        val autoNodes = if (schema.tableGroups.isEmpty()) nodes else groupedNodes(schema, levels)
         val positionsByTable = manualPositions.entries.associate { it.key.lowercase() to it.value }
-        val positionedNodes = nodes.map { node ->
+        val positionedNodes = autoNodes.map { node ->
             positionsByTable[node.tableId.lowercase()]?.let { position ->
                 node.copy(x = position.x.coerceAtLeast(margin), y = position.y.coerceAtLeast(margin))
             } ?: node
         }
         val nodeMap = positionedNodes.associateBy { it.tableId.lowercase() }
+        val groups = schema.tableGroups.mapNotNull { group ->
+            val members = group.tables.mapNotNull { it.resolve(schema.tables) }
+                .distinctBy { it.qualifiedName.lowercase() }
+                .mapNotNull { nodeMap[it.qualifiedName.lowercase()] }
+            TableGroupGeometry.frame(group, members)
+        }
         val edges = schema.references.mapNotNull { ref ->
             val fromRef = ref.foreignKeyEndpoint() ?: ref.from
             val toRef = ref.referencedEndpoint() ?: ref.to
@@ -95,9 +103,51 @@ class LayeredDiagramLayoutEngine(
             )
         }
         val routePoints = edges.flatMap { it.points }
-        val width = max(640.0, max(positionedNodes.maxOf { it.x + it.width }, routePoints.maxOfOrNull { it.x } ?: 0.0) + margin)
-        val height = max(360.0, max(positionedNodes.maxOf { it.y + it.height }, routePoints.maxOfOrNull { it.y } ?: 0.0) + margin)
-        return DiagramLayout(positionedNodes, edges, width, height)
+        val width = maxOf(640.0, positionedNodes.maxOf { it.x + it.width } + margin,
+            (routePoints.maxOfOrNull { it.x } ?: 0.0) + margin, (groups.maxOfOrNull { it.x + it.width } ?: 0.0) + margin)
+        val height = maxOf(360.0, positionedNodes.maxOf { it.y + it.height } + margin,
+            (routePoints.maxOfOrNull { it.y } ?: 0.0) + margin, (groups.maxOfOrNull { it.y + it.height } ?: 0.0) + margin)
+        return DiagramLayout(positionedNodes, edges, width, height, groups)
+    }
+
+    /** Pack independent group blocks; manual positions still take precedence over auto-layout. */
+    private fun groupedNodes(schema: DbmlSchema, levels: Map<String, Int>): List<TableNode> {
+        data class Block(val nodes: List<TableNode>, val width: Double, val height: Double)
+        val assigned = mutableSetOf<String>()
+        val memberships = schema.tableGroups.map { group ->
+            group to group.tables.mapNotNull { it.resolve(schema.tables) }
+                .filter { assigned.add(it.qualifiedName.lowercase()) }
+        } + listOf(null to schema.tables.filter { it.qualifiedName.lowercase() !in assigned })
+        val blocks = memberships.mapNotNull { (group, tables) ->
+            if (tables.isEmpty()) return@mapNotNull null
+            val children = mutableListOf<TableNode>()
+            var x = if (group != null) TableGroupGeometry.PADDING else 0.0
+            tables.groupBy { levels[it.qualifiedName.lowercase()] ?: 0 }.toSortedMap().forEach { (_, column) ->
+                var y = if (group != null) TableGroupGeometry.HEADER else 0.0
+                val widths = column.map { tableWidth(it.name, it.columns.map { c -> c.name to c.type }) }
+                column.forEachIndexed { index, table ->
+                    val height = 48.0 + table.columns.size * 26.0
+                    children += TableNode(table.qualifiedName, x, y, widths[index], height)
+                    y += height + 70.0
+                }
+                x += widths.max() + 150.0
+            }
+            val padding = if (group != null) TableGroupGeometry.PADDING else 0.0
+            val width = maxOf(children.maxOf { it.x + it.width } + padding,
+                group?.let { TableGroupGeometry.minimumWidth(it, tables.size) } ?: 0.0)
+            Block(children, width, children.maxOf { it.y + it.height } + padding)
+        }
+        val targetWidth = maxOf(blocks.maxOfOrNull { it.width } ?: 0.0, sqrt(blocks.sumOf { it.width * it.height } * 1.6))
+        var x = 48.0; var y = 48.0; var rowHeight = 0.0
+        return blocks.flatMap { block ->
+            if (x > 48.0 && x + block.width > 48.0 + targetWidth) {
+                x = 48.0; y += rowHeight + 64.0; rowHeight = 0.0
+            }
+            val placed = block.nodes.map { it.copy(x = it.x + x, y = it.y + y) }
+            x += block.width + 64.0
+            rowHeight = maxOf(rowHeight, block.height)
+            placed
+        }
     }
 
     private fun tableWidth(name: String, columns: List<Pair<String, String>>): Double {

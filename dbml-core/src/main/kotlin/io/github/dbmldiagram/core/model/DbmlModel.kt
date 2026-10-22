@@ -5,7 +5,26 @@ data class DbmlSchema(
     val tables: List<DbmlTable> = emptyList(),
     val enums: List<DbmlEnum> = emptyList(),
     val references: List<DbmlReference> = emptyList(),
+    val tableGroups: List<DbmlTableGroup> = emptyList(),
 )
+
+data class DbmlTableGroup(
+    val name: String,
+    val tables: List<DbmlTableRef>,
+    val color: String? = null,
+    val note: String? = null,
+    val schema: String? = null,
+    val sourceRange: DbmlSourceRange? = null,
+) {
+    val qualifiedName: String get() = schema?.let { "$it.$name" } ?: name
+}
+
+data class DbmlTableRef(val table: String, val schema: String? = null, val sourceRange: DbmlSourceRange? = null) {
+    val tableName: String get() = schema?.let { "$it.$table" } ?: table
+    fun resolve(tables: List<DbmlTable>): DbmlTable? = tables.firstOrNull {
+        it.qualifiedName.equals(tableName, true) || (schema == null && it.alias?.equals(table, true) == true)
+    }
+}
 
 data class DbmlProject(val name: String?, val properties: Map<String, String>)
 
