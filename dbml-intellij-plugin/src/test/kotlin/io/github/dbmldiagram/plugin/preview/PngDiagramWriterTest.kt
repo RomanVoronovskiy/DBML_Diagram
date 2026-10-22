@@ -11,6 +11,43 @@ import javax.imageio.ImageIO
 import java.nio.file.Files
 
 class PngDiagramWriterTest {
+    @Test fun exportsChecksAndCompositeForeignKeyWithoutPhantomColumns() {
+        val result = TolerantDbmlParser().parse("""
+            Table departments {
+              id uuid [pk]
+              tenant uuid [pk]
+            }
+            Table tasks {
+              id uuid [pk]
+              department_id uuid [not null]
+              tenant uuid [not null]
+              planned integer [check: `planned >= 0`]
+              completed integer
+              checks {
+                `completed IS NULL OR completed BETWEEN 0 AND planned` [name: 'ck_completed']
+              }
+            }
+            Ref: tasks.(department_id, tenant) > departments.(id, tenant)
+        """.trimIndent())
+        assertFalse(result.errors.toString(), result.hasErrors)
+        val schema = result.schema!!
+        assertEquals(5, schema.tables.last().columns.size)
+        val layout = LayeredDiagramLayoutEngine().layout(schema)
+        val svg = SvgDiagramRenderer().render(schema, layout)
+        assertTrue(svg.contains("CHECK (2)"))
+        assertTrue(svg.contains("FK tasks.(department_id, tenant)"))
+        val bytes = PngDiagramWriter.encode(svg)
+        val image = ImageIO.read(ByteArrayInputStream(bytes))
+        assertNotNull(image)
+        assertEquals(layout.width.toInt(), image.width)
+        assertEquals(layout.height.toInt(), image.height)
+        System.getProperty("dbml.preview.fixture")?.let { fixture ->
+            val target = java.nio.file.Path.of(fixture).parent.resolve("constraints-preview.png")
+            Files.createDirectories(target.parent)
+            Files.write(target, bytes)
+        }
+    }
+
     @Test fun rejectsDtdAndEntitiesBeforeXmlParsing() {
         for (prefix in listOf("<!DOCTYPE svg SYSTEM 'file:///must-not-read'>", "<!DOCTYPE svg [<!ENTITY secret SYSTEM 'file:///must-not-read'>]>", "<!ENTITY secret 'value'>")) {
             try {

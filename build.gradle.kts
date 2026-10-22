@@ -5,5 +5,5 @@ plugins {
 
 allprojects {
     group = "io.github.dbmldiagram"
-    version = "1.0.2"
+    version = "1.0.3"
 }

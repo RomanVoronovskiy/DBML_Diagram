@@ -18,13 +18,13 @@ class SvgDiagramRenderer : DiagramRenderer {
         val referenceErrors = ReferenceValidator().validate(schema).groupBy { it.referenceId }
         append("""<defs><style>.relation-route.invalid .relation{stroke:#e05252;stroke-dasharray:6 4}.relation-route.invalid .cardinality{fill:#e05252}.reference-error{font:700 12px sans-serif;fill:#e05252}.col.invalid{fill:#e05252}.table.invalid{stroke:#e05252;stroke-width:2}</style></defs>""")
         val invalidReferences = schema.references.filter { it.routeId() in referenceErrors }
-        val foreignKeys = schema.references.filterNot { it.routeId() in referenceErrors }.mapNotNull { reference ->
-            val endpoint = reference.foreignKeyEndpoint() ?: return@mapNotNull null
+        val foreignKeys = schema.references.filterNot { it.routeId() in referenceErrors }.flatMap { reference ->
+            val endpoint = reference.foreignKeyEndpoint() ?: return@flatMap emptyList()
             val table = schema.tables.firstOrNull {
                 it.qualifiedName.equals(endpoint.tableName, true) ||
                     (endpoint.schema == null && it.alias?.equals(endpoint.table, true) == true)
-            } ?: return@mapNotNull null
-            "${table.qualifiedName}.${endpoint.column}".lowercase()
+            } ?: return@flatMap emptyList()
+            endpoint.columns.map { "${table.qualifiedName}.$it".lowercase() }
         }.toSet()
 
         layout.nodes.forEach { node ->
@@ -36,7 +36,7 @@ class SvgDiagramRenderer : DiagramRenderer {
             val uniqueColumns = table.indexes.filter { it.unique && it.columns.size == 1 }.flatMap { it.columns }.map(String::lowercase).toSet()
             val invalidColumns = invalidReferences.flatMap { listOf(it.from, it.to) }.filter {
                 it.tableName.equals(table.qualifiedName, true) || (it.schema == null && it.table.equals(table.alias, true))
-            }.map { it.column.lowercase() }.toSet()
+            }.flatMap { it.columns }.map(String::lowercase).toSet()
             append("<g data-table=\"").append(escape(table.qualifiedName))
                 .append("\" data-x=\"").append(node.x).append("\" data-y=\"").append(node.y)
                 .append("\" data-width=\"").append(node.width).append("\" data-height=\"").append(node.height).append("\">")
@@ -44,6 +44,11 @@ class SvgDiagramRenderer : DiagramRenderer {
             append("<path class=\"head\" d=\"M${node.x + 5},${node.y} H${node.x + node.width - 5} Q${node.x + node.width},${node.y} ${node.x + node.width},${node.y + 5} V${node.y + 38} H${node.x} V${node.y + 5} Q${node.x},${node.y} ${node.x + 5},${node.y}Z\"/>")
             append("<line class=\"separator\" x1=\"${node.x}\" y1=\"${node.y + 38}\" x2=\"${node.x + node.width}\" y2=\"${node.y + 38}\"/>")
             append("<text class=\"title\" x=\"${node.x + 14}\" y=\"${node.y + 25}\">${escape(table.qualifiedName)}</text>")
+            val checks = table.checks + table.columns.flatMap { it.checks }
+            if (checks.isNotEmpty()) {
+                val checkTitle = checks.joinToString("\n") { (it.name?.let { name -> "$name: " } ?: "") + it.expression }
+                append("<text class=\"col type check-count\" text-anchor=\"end\" x=\"${node.x + node.width - 12}\" y=\"${node.y + 25}\">CHECK (${checks.size})<title>${escape(checkTitle)}</title></text>")
+            }
             table.columns.forEachIndexed { index, column ->
                 val y = node.y + 57 + index * 26
                 val badges = buildList {
@@ -146,9 +151,9 @@ class SvgDiagramRenderer : DiagramRenderer {
         val prefix = reference.name?.let { "$it: " } ?: ""
         return if (foreignKey != null && referenced != null) {
             val cardinality = if (reference.cardinality == DbmlCardinality.ONE_TO_ONE) "1:1" else "N:1"
-            "${prefix}FK ${foreignKey.tableName}.${foreignKey.column} → REF ${referenced.tableName}.${referenced.column} ($cardinality)"
+            "${prefix}FK ${foreignKey.displayName} → REF ${referenced.displayName} ($cardinality)"
         } else {
-            "$prefix${reference.from.tableName}.${reference.from.column} ↔ ${reference.to.tableName}.${reference.to.column} (N:N)"
+            "$prefix${reference.from.displayName} ↔ ${reference.to.displayName} (N:N)"
         }
     }
 

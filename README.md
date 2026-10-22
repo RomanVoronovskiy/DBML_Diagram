@@ -4,7 +4,7 @@
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 [![IntelliJ Platform](https://img.shields.io/badge/IntelliJ%20Platform-2024.1--2026.2-purple.svg)](https://plugins.jetbrains.com/)
 
-DBML Diagram is an open-source IntelliJ Platform plugin that shows a realtime SVG entity-relationship diagram next to a `.dbml` file. Version **1.0.2** fixes parser heap exhaustion when opening diagrams with visualization blocks, supports Platform builds **241–262** (2024.1–2026.2), and retains the optional dbdiagram.io synchronization introduced in 1.0.0. Local editing, preview, validation, and exports remain offline. It supports IntelliJ IDEA and DataGrip-compatible Platform IDEs.
+DBML Diagram is an open-source IntelliJ Platform plugin that shows a realtime SVG entity-relationship diagram next to a `.dbml` file. Version **1.0.3** improves complex-schema processing with CHECK constraints and composite foreign keys, supports Platform builds **241–262** (2024.1–2026.2), and retains the optional dbdiagram.io synchronization introduced in 1.0.0. Local editing, preview, validation, and exports remain offline. It supports IntelliJ IDEA and DataGrip-compatible Platform IDEs.
 
 ## Features
 
@@ -19,12 +19,22 @@ DBML Diagram is an open-source IntelliJ Platform plugin that shows a realtime SV
 - Full-diagram standalone SVG and PNG export. PNG rasterization uses Apache Batik and has a 16,384 px / 40 MP safety limit.
 - PostgreSQL, MySQL, and Oracle DDL export with named primary, unique, and foreign-key constraints, indexes, defaults, comments, and referential actions.
 - Visible `PK`, `FK`, `UNIQ`, and `NOT_NULL` markers on diagram columns.
+- Named table-level CHECK constraints and repeated inline `check:` expressions, preserved in DDL exports and listed in table-header tooltips.
+- Composite foreign-key tuples with whole-key validation, pairwise type checks, complete DDL column lists, and FK markers on every member. One relationship is drawn per constraint, anchored at the first declared column; the tooltip lists the full ordered tuple.
 - Light and Darcula-aware diagram colors.
 - DBML file type, icon, comments, and basic syntax highlighting.
 - Triple-single-quoted multiline notes. `TableGroup`, standalone sticky `Note`, and unknown declaration blocks are safely ignored with warnings in the local preview; their visual grouping/sticky-note appearance is not rendered. The original file text is not changed.
 - Optional dbdiagram.io browser login through the official CLI, or a workspace API token stored in IDE PasswordSafe.
 - Search and select remote diagrams in **My Diagrams**, download DBML, link an existing file, and explicitly Pull or Push.
 - Local editing, preview, validation, and SVG/PNG/DDL exports do not require an account, network access, Node.js, or CLI tools.
+
+## CHECK constraints and composite keys (1.0.3)
+
+The local parser accepts both `checks { ... }` and column settings such as ``[check: `quantity >= 0`]``. CHECK expressions must be nonempty backtick-quoted SQL expressions. Names and expressions are preserved when exporting PostgreSQL, MySQL, or Oracle DDL; SQL expression semantics are not evaluated or translated, so review expressions for the selected dialect. [MySQL CHECK enforcement](https://dev.mysql.com/blog-archive/mysql-8-0-16-introducing-check-constraint/) requires MySQL 8.0.16 or newer.
+
+Composite references use the [DBML syntax](https://dbml.dbdiagram.io/docs/) `Ref: tasks.(department_id, tenant_id) > departments.(id, tenant_id)`. Column counts and positional types must match, the target tuple must form a complete PK/UNIQUE key, and FK uniqueness is checked across the entire tuple, including unique subsets. See [the public synthetic example](examples/checks-composite.dbml).
+
+These are schema-processing improvements, not automatic database/schema tuning: the plugin does not rewrite your DBML, evaluate CHECK expressions, or execute SQL. `TableGroup` and standalone sticky notes remain visualization-only warnings in the local preview.
 
 ## dbdiagram.io integration (1.0.0)
 

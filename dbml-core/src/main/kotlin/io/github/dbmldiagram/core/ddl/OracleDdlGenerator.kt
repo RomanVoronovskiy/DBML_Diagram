@@ -42,12 +42,17 @@ class OracleDdlGenerator : DdlGenerator {
             table.columns.filter { it.unique && it.name !in primaryKey }.forEach { column ->
                 definitions += "    CONSTRAINT ${quote(name("uq", table.name, listOf(column.name)))} UNIQUE (${quote(column.name)})"
             }
+            // Oracle foreign keys need a declared candidate-key constraint, not only a unique index.
+            table.indexes.filter { it.unique && !it.primaryKey }.forEach { index ->
+                definitions += "    CONSTRAINT ${quote(index.name ?: name("uq", table.name, index.columns))} UNIQUE (${columns(index.columns)})"
+            }
+            definitions += checkDefinitions(table, ::quote, 30)
             appendLine(definitions.joinToString(",\n"))
             appendLine(");")
         }
 
         schema.tables.forEach { table ->
-            table.indexes.filterNot { it.primaryKey }.forEach { index ->
+            table.indexes.filterNot { it.primaryKey || it.unique }.forEach { index ->
                 appendLine()
                 val prefix = if (index.unique) "uq" else "ix"
                 val indexName = index.name ?: name(prefix, table.name, index.columns)
@@ -66,9 +71,9 @@ class OracleDdlGenerator : DdlGenerator {
             }
             val sourceTable = resolveTable(schema, foreignKey)
             val targetTable = resolveTable(schema, referenced)
-            val sourceColumn = sourceTable?.columns?.firstOrNull { it.name.equals(foreignKey.column, true) }
-            val targetColumn = targetTable?.columns?.firstOrNull { it.name.equals(referenced.column, true) }
-            if (sourceTable == null || targetTable == null || sourceColumn == null || targetColumn == null) {
+            val sourceColumns = resolveColumns(sourceTable, foreignKey)
+            val targetColumns = resolveColumns(targetTable, referenced)
+            if (sourceTable == null || targetTable == null || sourceColumns == null || targetColumns == null || sourceColumns.size != targetColumns.size) {
                 appendLine()
                 appendLine("-- Skipped unresolved reference ${display(reference.from)} -> ${display(reference.to)}.")
                 return@forEach
@@ -83,17 +88,17 @@ class OracleDdlGenerator : DdlGenerator {
             val constraintName = reference.name ?: name(
                 "fk",
                 sourceTable.name,
-                listOf(sourceColumn.name, targetTable.name, targetColumn.name),
+                sourceColumns.map { it.name } + targetTable.name + targetColumns.map { it.name },
             )
             append("ALTER TABLE ${qualified(sourceTable)} ADD CONSTRAINT ${quote(constraintName)} ")
-            append("FOREIGN KEY (${quote(sourceColumn.name)}) REFERENCES ${qualified(targetTable)} (${quote(targetColumn.name)})")
+            append("FOREIGN KEY (${columns(sourceColumns.map { it.name })}) REFERENCES ${qualified(targetTable)} (${columns(targetColumns.map { it.name })})")
             deleteAction?.let { append(" ON DELETE $it") }
             appendLine(";")
 
-            if (reference.cardinality == DbmlCardinality.ONE_TO_ONE && !isUnique(sourceTable, sourceColumn.name)) {
+            if (reference.cardinality == DbmlCardinality.ONE_TO_ONE && !isUnique(sourceTable, sourceColumns.map { it.name })) {
                 appendLine(
                     "ALTER TABLE ${qualified(sourceTable)} ADD CONSTRAINT " +
-                        "${quote(name("uq", sourceTable.name, listOf(sourceColumn.name)))} UNIQUE (${quote(sourceColumn.name)});",
+                        "${quote(name("uq", sourceTable.name, sourceColumns.map { it.name }))} UNIQUE (${columns(sourceColumns.map { it.name })});",
                 )
             }
         }

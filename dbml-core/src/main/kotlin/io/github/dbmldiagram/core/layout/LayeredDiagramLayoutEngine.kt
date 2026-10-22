@@ -117,6 +117,7 @@ class LayeredDiagramLayoutEngine(
         return if (dx >= 0) TableSide.RIGHT to TableSide.LEFT else TableSide.LEFT to TableSide.RIGHT
     }
 
+    // Draw a composite FK once, anchored at its first column; the tooltip lists the complete tuple.
     private fun columnOffset(table: DbmlTable, ref: DbmlColumnRef, node: TableNode): Double =
         table.columns.indexOfFirst { it.name.equals(ref.column, true) }
             .takeIf { it >= 0 }?.let(::columnRowOffset) ?: (node.height / 2)

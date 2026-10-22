@@ -4,6 +4,18 @@ All notable changes to DBML Diagram are documented in this file. The project fol
 
 ## [Unreleased]
 
+## [1.0.3] - 2026-10-22
+
+### Schema processing improvements and CHECK constraints
+
+- Support named table-level `checks { ... }` blocks and repeated inline `check:` expressions without mistaking them for columns or closing the table prematurely.
+- Preserve CHECK constraint names and SQL expressions in PostgreSQL, MySQL, and Oracle DDL export. Empty/malformed expressions and duplicate CHECK names produce source-located errors. Expressions are preserved verbatim, not evaluated or translated between SQL dialects.
+- Display the number of CHECK constraints in table headers, with their names and expressions in a tooltip.
+- Parse ordered composite foreign keys, including quoted/schema-qualified identifiers, aliases, and reference actions. Validate all members, arity, candidate keys, cardinality, duplicate columns, and pairwise type compatibility.
+- Render each composite FK as one relationship anchored at its first column, with the full tuple in its tooltip; mark every participating FK/error column. Preserve existing single-column route identifiers.
+- Export complete composite FK column lists instead of truncating them. Declare Oracle unique keys as constraints and add an ordered supporting unique index for reordered MySQL reference tuples when needed.
+- Add regression coverage for complex schemas, CHECK constraints, composite keys, diagram/PNG output, and malformed input. Private reproduction schemas remain outside the repository.
+
 ## [1.0.2] - 2026-10-17
 
 ### Fixed

@@ -4,6 +4,8 @@ import io.github.dbmldiagram.core.model.DbmlCardinality
 import io.github.dbmldiagram.core.model.DbmlColumn
 import io.github.dbmldiagram.core.model.DbmlSchema
 import io.github.dbmldiagram.core.model.DbmlTable
+import io.github.dbmldiagram.core.validation.hasExactUniqueKey
+import io.github.dbmldiagram.core.validation.uniqueKeys
 
 /** Generates MySQL 8 compatible DDL from the supported DBML model. */
 class MySqlDdlGenerator : DdlGenerator {
@@ -37,6 +39,7 @@ class MySqlDdlGenerator : DdlGenerator {
             table.columns.filter { it.unique && it.name !in primaryKey }.forEach { column ->
                 definitions += "    CONSTRAINT ${quote(name("uq", table.name, listOf(column.name)))} UNIQUE (${quote(column.name)})"
             }
+            definitions += checkDefinitions(table, ::quote, 64)
             appendLine(definitions.joinToString(",\n"))
             append(")")
             table.note?.let { append(" COMMENT=${sqlString(it)}") }
@@ -53,6 +56,10 @@ class MySqlDdlGenerator : DdlGenerator {
             }
         }
 
+        val supportingKeys = mutableSetOf<String>()
+        val usedIndexNames = schema.tables.flatMap { table -> table.indexes.map { it.name ?: name(if (it.unique) "uq" else "ix", table.name, it.columns) } }
+            .map(String::lowercase).toMutableSet()
+        var supportingOrdinal = 0
         schema.references.forEach { reference ->
             val foreignKey = reference.foreignKeyEndpoint()
             val referenced = reference.referencedEndpoint()
@@ -63,15 +70,27 @@ class MySqlDdlGenerator : DdlGenerator {
             }
             val sourceTable = resolveTable(schema, foreignKey)
             val targetTable = resolveTable(schema, referenced)
-            val sourceColumn = sourceTable?.columns?.firstOrNull { it.name.equals(foreignKey.column, true) }
-            val targetColumn = targetTable?.columns?.firstOrNull { it.name.equals(referenced.column, true) }
-            if (sourceTable == null || targetTable == null || sourceColumn == null || targetColumn == null) {
+            val sourceColumns = resolveColumns(sourceTable, foreignKey)
+            val targetColumns = resolveColumns(targetTable, referenced)
+            if (sourceTable == null || targetTable == null || sourceColumns == null || targetColumns == null || sourceColumns.size != targetColumns.size) {
                 appendLine()
                 appendLine("-- Skipped unresolved reference ${display(reference.from)} -> ${display(reference.to)}.")
                 return@forEach
             }
 
             appendLine()
+            val targetNames = targetColumns.map { it.name }
+            val orderedNames = targetNames.map(String::lowercase)
+            if (targetNames.size > 1 && targetTable.hasExactUniqueKey(targetNames) && targetTable.uniqueKeys().none { it == orderedNames }) {
+                val key = targetTable.qualifiedName.lowercase() + orderedNames.joinToString("\u0000", "\u0000")
+                if (supportingKeys.add(key)) {
+                    var supportingName: String
+                    do { supportingName = name("uq_fk${++supportingOrdinal}", targetTable.name, targetNames) }
+                    while (!usedIndexNames.add(supportingName.lowercase()))
+                    appendLine("-- MySQL requires a referenced unique index in the declared FK column order.")
+                    appendLine("CREATE UNIQUE INDEX ${quote(supportingName)} ON ${qualified(targetTable)} (${columns(targetNames)});")
+                }
+            }
             if (reference.onDelete?.let(::normalizedAction) == "SET DEFAULT") {
                 appendLine("-- MySQL does not support ON DELETE SET DEFAULT; NO ACTION is used instead.")
             }
@@ -81,18 +100,18 @@ class MySqlDdlGenerator : DdlGenerator {
             val constraintName = reference.name ?: name(
                 "fk",
                 sourceTable.name,
-                listOf(sourceColumn.name, targetTable.name, targetColumn.name),
+                sourceColumns.map { it.name } + targetTable.name + targetColumns.map { it.name },
             )
             append("ALTER TABLE ${qualified(sourceTable)} ADD CONSTRAINT ${quote(constraintName)} ")
-            append("FOREIGN KEY (${quote(sourceColumn.name)}) REFERENCES ${qualified(targetTable)} (${quote(targetColumn.name)})")
+            append("FOREIGN KEY (${columns(sourceColumns.map { it.name })}) REFERENCES ${qualified(targetTable)} (${columns(targetColumns.map { it.name })})")
             reference.onDelete?.let { append(" ON DELETE ${mysqlAction(it)}") }
             reference.onUpdate?.let { append(" ON UPDATE ${mysqlAction(it)}") }
             appendLine(";")
 
-            if (reference.cardinality == DbmlCardinality.ONE_TO_ONE && !isUnique(sourceTable, sourceColumn.name)) {
+            if (reference.cardinality == DbmlCardinality.ONE_TO_ONE && !isUnique(sourceTable, sourceColumns.map { it.name })) {
                 appendLine(
                     "ALTER TABLE ${qualified(sourceTable)} ADD CONSTRAINT " +
-                        "${quote(name("uq", sourceTable.name, listOf(sourceColumn.name)))} UNIQUE (${quote(sourceColumn.name)});",
+                        "${quote(name("uq", sourceTable.name, sourceColumns.map { it.name }))} UNIQUE (${columns(sourceColumns.map { it.name })});",
                 )
             }
         }

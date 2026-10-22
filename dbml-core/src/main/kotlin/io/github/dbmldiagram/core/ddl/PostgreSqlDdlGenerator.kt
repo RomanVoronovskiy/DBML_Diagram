@@ -44,6 +44,7 @@ class PostgreSqlDdlGenerator : DdlGenerator {
             table.columns.filter { it.unique && it.name !in primaryKey }.forEach { column ->
                 definitions += "    CONSTRAINT ${quote(name("uq", table.name, listOf(column.name)))} UNIQUE (${quote(column.name)})"
             }
+            definitions += checkDefinitions(table, ::quote, 63)
             appendLine(definitions.joinToString(",\n"))
             appendLine(");")
         }
@@ -73,9 +74,9 @@ class PostgreSqlDdlGenerator : DdlGenerator {
                 appendLine("-- Skipped unresolved reference ${display(reference.from)} -> ${display(reference.to)}.")
                 return@forEach
             }
-            val sourceColumn = sourceTable.columns.firstOrNull { it.name.equals(foreignKey.column, true) }
-            val targetColumn = targetTable.columns.firstOrNull { it.name.equals(referenced.column, true) }
-            if (sourceColumn == null || targetColumn == null) {
+            val sourceColumns = resolveColumns(sourceTable, foreignKey)
+            val targetColumns = resolveColumns(targetTable, referenced)
+            if (sourceColumns == null || targetColumns == null || sourceColumns.size != targetColumns.size) {
                 appendLine()
                 appendLine("-- Skipped unresolved reference ${display(reference.from)} -> ${display(reference.to)}.")
                 return@forEach
@@ -85,18 +86,18 @@ class PostgreSqlDdlGenerator : DdlGenerator {
             val constraintName = reference.name ?: name(
                 "fk",
                 sourceTable.name,
-                listOf(sourceColumn.name, targetTable.name, targetColumn.name),
+                sourceColumns.map { it.name } + targetTable.name + targetColumns.map { it.name },
             )
             append("ALTER TABLE ${qualified(sourceTable)} ADD CONSTRAINT ${quote(constraintName)} ")
-            append("FOREIGN KEY (${quote(sourceColumn.name)}) REFERENCES ${qualified(targetTable)} (${quote(targetColumn.name)})")
+            append("FOREIGN KEY (${columns(sourceColumns.map { it.name })}) REFERENCES ${qualified(targetTable)} (${columns(targetColumns.map { it.name })})")
             reference.onDelete?.let { append(" ON DELETE ${referentialAction(it)}") }
             reference.onUpdate?.let { append(" ON UPDATE ${referentialAction(it)}") }
             appendLine(";")
 
-            if (reference.cardinality == DbmlCardinality.ONE_TO_ONE && !isUnique(sourceTable, sourceColumn.name)) {
+            if (reference.cardinality == DbmlCardinality.ONE_TO_ONE && !isUnique(sourceTable, sourceColumns.map { it.name })) {
                 appendLine(
                     "ALTER TABLE ${qualified(sourceTable)} ADD CONSTRAINT " +
-                        "${quote(name("uq", sourceTable.name, listOf(sourceColumn.name)))} UNIQUE (${quote(sourceColumn.name)});",
+                        "${quote(name("uq", sourceTable.name, sourceColumns.map { it.name }))} UNIQUE (${columns(sourceColumns.map { it.name })});",
                 )
             }
         }

@@ -77,6 +77,13 @@ intellijPlatform {
 tasks {
     patchPluginXml {
         changeNotes = """
+            <h3>1.0.3 — Schema processing improvements and CHECK constraints</h3>
+            <ul>
+              <li>Support named CHECK constraint blocks and inline checks; preserve expressions in SQL exports.</li>
+              <li>Handle composite foreign keys across parsing, validation, diagram previews, and DDL export.</li>
+              <li>Show CHECK counts in table headers and mark every column of a composite FK.</li>
+              <li>Improve handling of complex schemas while retaining the parser memory-safety fixes.</li>
+            </ul>
             <h3>1.0.2</h3>
             <ul>
               <li>Fix Java heap exhaustion when parsing TableGroup, sticky Note, or unexpected closing braces.</li>

@@ -1,8 +1,5 @@
 package io.github.dbmldiagram.plugin.preview
 
-import io.github.dbmldiagram.core.layout.LayeredDiagramLayoutEngine
-import io.github.dbmldiagram.core.parser.TolerantDbmlParser
-import io.github.dbmldiagram.core.renderer.SvgDiagramRenderer
 import org.junit.Assert.*
 import org.junit.Assume.assumeNotNull
 import org.junit.Test
@@ -48,23 +45,40 @@ class PackagedPluginPngTest {
                 assertSame(SAXParserFactory::class.java, loader.loadClass("javax.xml.parsers.SAXParserFactory"))
                 assertTrue(loader.loadClass("javax.xml.parsers.SAXParserFactory").isInstance(hostFactory))
                 assertSame(loader, loader.loadClass("org.apache.batik.dom.util.SAXDocumentFactory").classLoader)
-                val schema = TolerantDbmlParser().parse("""
-                    Table users { id uuid [pk] }
+                val source = """
+                    Table users {
+                      id uuid [pk]
+                      tenant_id uuid [pk]
+                    }
                     Table orders {
                       id uuid [pk]
                       user_id uuid
+                      tenant_id uuid
+                      quantity integer [check: `quantity >= 0`]
+                      checks { `quantity < 100` [name: 'ck_quantity'] }
                     }
-                    Ref: orders.user_id > users.id
-                """.trimIndent()).schema!!
-                val layout = LayeredDiagramLayoutEngine().layout(schema)
-                val svg = SvgDiagramRenderer().render(schema, layout)
+                    Ref: orders.(user_id, tenant_id) > users.(id, tenant_id)
+                """.trimIndent()
+                // Exercise the core model/parser/renderer from the actual ZIP as well as its PNG writer.
+                val parserClass = loader.loadClass("io.github.dbmldiagram.core.parser.TolerantDbmlParser")
+                assertSame(loader, parserClass.classLoader)
+                val result = parserClass.getMethod("parse", String::class.java).invoke(parserClass.getConstructor().newInstance(), source)
+                assertEquals(false, result.javaClass.getMethod("getHasErrors").invoke(result))
+                val schema = result.javaClass.getMethod("getSchema").invoke(result)
+                val layoutClass = loader.loadClass("io.github.dbmldiagram.core.layout.LayeredDiagramLayoutEngine")
+                val engine = layoutClass.getConstructor(Map::class.java, Map::class.java).newInstance(emptyMap<String, Any>(), emptyMap<String, Any>())
+                val layout = layoutClass.getMethod("layout", schema.javaClass).invoke(engine, schema)
+                val rendererClass = loader.loadClass("io.github.dbmldiagram.core.renderer.SvgDiagramRenderer")
+                val svg = rendererClass.getMethod("render", schema.javaClass, layout.javaClass).invoke(rendererClass.getConstructor().newInstance(), schema, layout) as String
+                assertTrue(svg.contains("CHECK (2)"))
+                assertTrue(svg.contains("FK orders.(user_id, tenant_id)"))
                 val writer = loader.loadClass("io.github.dbmldiagram.plugin.preview.PngDiagramWriter")
                 assertSame(loader, writer.classLoader)
                 val bytes = writer.getMethod("encode", String::class.java).invoke(writer.getField("INSTANCE").get(null), svg) as ByteArray
                 val image = ImageIO.read(ByteArrayInputStream(bytes))
                 assertNotNull("The packaged plugin must produce a decodable PNG", image)
-                assertEquals(layout.width.toInt(), image.width)
-                assertEquals(layout.height.toInt(), image.height)
+                assertEquals((layout.javaClass.getMethod("getWidth").invoke(layout) as Double).toInt(), image.width)
+                assertEquals((layout.javaClass.getMethod("getHeight").invoke(layout) as Double).toInt(), image.height)
             }
         } finally {
             try {
