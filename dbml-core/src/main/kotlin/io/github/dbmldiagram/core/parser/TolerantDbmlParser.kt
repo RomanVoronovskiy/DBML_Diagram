@@ -95,6 +95,7 @@ private class Parser(private val tokens: List<Token>, initialErrors: List<DbmlPa
     private val tables = mutableListOf<DbmlTable>()
     private val enums = mutableListOf<DbmlEnum>()
     private val references = mutableListOf<DbmlReference>()
+    private val tableGroups = mutableListOf<DbmlTableGroup>()
     private var project: DbmlProject? = null
 
     fun parse(): ParseResult {
@@ -107,7 +108,8 @@ private class Parser(private val tokens: List<Token>, initialErrors: List<DbmlPa
                 matchWord("Table") -> parseTable()
                 matchWord("Enum") -> parseEnum()
                 matchWord("Ref") -> parseReference()
-                checkWord("TableGroup") || checkWord("Note") -> skipUnsupportedDeclaration(requireBlock = true)
+                matchWord("TableGroup") -> parseTableGroup()
+                checkWord("Note") -> skipUnsupportedDeclaration(requireBlock = true)
                 checkSymbol("}") -> { error("Unexpected closing '}'", peek()); advance() }
                 else -> skipUnsupportedDeclaration()
             }
@@ -118,9 +120,51 @@ private class Parser(private val tokens: List<Token>, initialErrors: List<DbmlPa
                 advance()
             }
         }
-        val schema = DbmlSchema(project, tables.toList(), enums.toList(), references.toList())
+        val schema = DbmlSchema(project, tables.toList(), enums.toList(), references.toList(), tableGroups.toList())
         validate(schema)
         return ParseResult(schema, errors.toList())
+    }
+
+    private fun parseTableGroup() {
+        val start = peek()
+        val name = parseQualifiedName() ?: run { error("Expected TableGroup name", peek()); skipLine(); return }
+        skipNewlines()
+        val settings = if (consumeSymbol("[")) collectUntilClosingBracket().filter { it.kind != Kind.NEWLINE } else emptyList()
+        skipNewlines()
+        if (!consumeSymbol("{")) { error("Expected '{' after TableGroup name", peek()); skipLine(); return }
+        val members = mutableListOf<DbmlTableRef>()
+        var note = settingValue(settings, "note")
+        val colorSetting = settingSegments(settings).firstOrNull { it.firstOrNull()?.text.equals("color", true) }
+        val color = colorSetting?.drop(2)?.joinToString("") { it.text }
+        val safeColor = color?.takeIf { colorSetting.getOrNull(1)?.isSymbol(":") == true && Regex("#[0-9a-fA-F]{3}(?:[0-9a-fA-F]{3})?").matches(it) }
+        if (colorSetting != null && (safeColor == null || colorSetting.getOrNull(1)?.isSymbol(":") != true)) {
+            warning("Invalid TableGroup color; using the default palette (expected #rgb or #rrggbb)", colorSetting.first())
+        }
+        while (!atEnd() && !checkSymbol("}")) {
+            skipNewlines(); if (checkSymbol("}") || atEnd()) break
+            if (matchWord("Note")) {
+                if (consumeSymbol(":")) note = collectLine(stopAtBrace = true).joinToString(" ") { it.text }
+                else if (consumeSymbol("{")) {
+                    skipNewlines()
+                    note = collectLine(stopAtBrace = true).joinToString(" ") { it.text }
+                    skipNewlines()
+                    closeBlock("TableGroup Note")
+                } else { error("Expected ':' or '{' after TableGroup Note", peek()); skipLine() }
+            } else {
+                val memberStart = peek()
+                val member = parseQualifiedName()
+                if (member == null) {
+                    error("Expected table name in TableGroup", peek())
+                    advance()
+                } else members += DbmlTableRef(member.second, member.first, sourceRange(listOf(memberStart, tokens[position - 1])))
+            }
+        }
+        if (!consumeSymbol("}")) error("Unterminated TableGroup ${name.second} block", start)
+        else skipNewlines()
+        if (tableGroups.any { it.qualifiedName.equals(name.first?.let { schema -> "$schema.${name.second}" } ?: name.second, true) }) {
+            error("Duplicate TableGroup '${name.second}'", start)
+        }
+        tableGroups += DbmlTableGroup(name.second, members, safeColor, note, name.first, sourceRange(listOf(start)))
     }
 
     /** Ignore visualization/unknown declarations without parsing their contents as schema. */
@@ -397,6 +441,26 @@ private class Parser(private val tokens: List<Token>, initialErrors: List<DbmlPa
             if (!seen.add(table.qualifiedName.lowercase())) warning("Duplicate table '${table.qualifiedName}'", Token(Kind.WORD, table.name, 1, 1))
         }
         errors += ReferenceValidator().validate(schema)
+        val owners = mutableMapOf<String, String>()
+        schema.tableGroups.forEach { group ->
+            val members = mutableSetOf<String>()
+            group.tables.forEach { reference ->
+                val table = reference.resolve(schema.tables)
+                val range = reference.sourceRange ?: group.sourceRange
+                val token = Token(Kind.WORD, reference.tableName, range?.line ?: 1, range?.column ?: 1)
+                if (table == null) warning("Unknown TableGroup member '${reference.tableName}' in '${group.qualifiedName}'", token)
+                else {
+                    val id = table.qualifiedName.lowercase()
+                    if (!members.add(id)) warning("Duplicate member '${reference.tableName}' in TableGroup '${group.qualifiedName}'", token)
+                    val previous = owners.putIfAbsent(id, group.qualifiedName)
+                    if (previous != null && previous != group.qualifiedName) warning("Table '${table.qualifiedName}' belongs to multiple groups; auto-layout uses '$previous' and frames may overlap", token)
+                }
+            }
+            if (members.isEmpty()) {
+                val range = group.sourceRange
+                warning("TableGroup '${group.qualifiedName}' has no resolved tables; no frame is drawn", Token(Kind.WORD, group.name, range?.line ?: 1, range?.column ?: 1))
+            }
+        }
     }
 
     private fun sourceRange(items: List<Token>): DbmlSourceRange? {

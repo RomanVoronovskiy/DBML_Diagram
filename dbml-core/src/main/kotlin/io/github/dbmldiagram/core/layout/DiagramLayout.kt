@@ -2,8 +2,13 @@ package io.github.dbmldiagram.core.layout
 
 import io.github.dbmldiagram.core.model.DbmlReference
 import io.github.dbmldiagram.core.model.DbmlSchema
+import io.github.dbmldiagram.core.model.DbmlTableGroup
 
-data class DiagramLayout(val nodes: List<TableNode>, val edges: List<RelationEdge>, val width: Double, val height: Double)
+data class DiagramLayout(val nodes: List<TableNode>, val edges: List<RelationEdge>, val width: Double, val height: Double,
+                         val groups: List<TableGroupNode> = emptyList())
+
+data class TableGroupNode(val group: DbmlTableGroup, val tableIds: List<String>, val x: Double, val y: Double,
+                          val width: Double, val height: Double, val color: String)
 data class TableNode(val tableId: String, val x: Double, val y: Double, val width: Double, val height: Double)
 data class DiagramPoint(val x: Double, val y: Double)
 enum class TableSide { TOP, RIGHT, BOTTOM, LEFT }

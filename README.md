@@ -4,7 +4,7 @@
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 [![IntelliJ Platform](https://img.shields.io/badge/IntelliJ%20Platform-2024.1--2026.2-purple.svg)](https://plugins.jetbrains.com/)
 
-DBML Diagram is an open-source IntelliJ Platform plugin that shows a realtime SVG entity-relationship diagram next to a `.dbml` file. Version **1.0.3** improves complex-schema processing with CHECK constraints and composite foreign keys, supports Platform builds **241–262** (2024.1–2026.2), and retains the optional dbdiagram.io synchronization introduced in 1.0.0. Local editing, preview, validation, and exports remain offline. It supports IntelliJ IDEA and DataGrip-compatible Platform IDEs.
+DBML Diagram is an open-source IntelliJ Platform plugin that shows a realtime SVG entity-relationship diagram next to a `.dbml` file. Version **2.0.0** adds colored, named **TableGroup** frames and group-aware layout, supports Platform builds **241–262** (2024.1–2026.2), and retains CHECK constraints, composite foreign keys, and optional dbdiagram.io synchronization. Local editing, preview, validation, and exports remain offline. It supports IntelliJ IDEA and DataGrip-compatible Platform IDEs.
 
 ## Features
 
@@ -15,6 +15,7 @@ DBML Diagram is an open-source IntelliJ Platform plugin that shows a realtime SV
 - Semantic relationship errors are underlined in the editor and drawn in red in the current diagram. Exports are disabled until the current document is valid.
 - Pan, Ctrl/Cmd + mouse-wheel zoom, Fit, zoom buttons, 100%, and manual Refresh.
 - Drag tables by their headers; personal positions are restored per DBML file.
+- Colored `TableGroup` frames with names, member counts, group-aware auto-layout, live resizing, and matching SVG/PNG exports.
 - Drag relationship lines to adjust their orthogonal route. A selected route has separate horizontal and vertical handles, while its endpoints can move between the top, right, bottom, and left table anchors.
 - Full-diagram standalone SVG and PNG export. PNG rasterization uses Apache Batik and has a 16,384 px / 40 MP safety limit.
 - PostgreSQL, MySQL, and Oracle DDL export with named primary, unique, and foreign-key constraints, indexes, defaults, comments, and referential actions.
@@ -23,10 +24,43 @@ DBML Diagram is an open-source IntelliJ Platform plugin that shows a realtime SV
 - Composite foreign-key tuples with whole-key validation, pairwise type checks, complete DDL column lists, and FK markers on every member. One relationship is drawn per constraint, anchored at the first declared column; the tooltip lists the full ordered tuple.
 - Light and Darcula-aware diagram colors.
 - DBML file type, icon, comments, and basic syntax highlighting.
-- Triple-single-quoted multiline notes. `TableGroup`, standalone sticky `Note`, and unknown declaration blocks are safely ignored with warnings in the local preview; their visual grouping/sticky-note appearance is not rendered. The original file text is not changed.
+- Triple-single-quoted multiline notes, including group notes in SVG tooltips. Standalone sticky `Note` and unknown declaration blocks are safely ignored with warnings in the local preview. The original file text is not changed.
 - Optional dbdiagram.io browser login through the official CLI, or a workspace API token stored in IDE PasswordSafe.
 - Search and select remote diagrams in **My Diagrams**, download DBML, link an existing file, and explicitly Pull or Push.
 - Local editing, preview, validation, and SVG/PNG/DDL exports do not require an account, network access, Node.js, or CLI tools.
+
+## Colored TableGroup frames (2.0.0)
+
+Group tables into visual domains using [DBML TableGroup syntax](https://dbml.dbdiagram.io/syntax/enrichment-visualization/):
+
+```dbml
+Table customers { id uuid [pk] }
+Table orders {
+  id uuid [pk]
+  customer_id uuid [ref: > customers.id]
+}
+
+TableGroup Identity [color: #3b82f6, note: 'Customer accounts'] {
+  customers
+}
+TableGroup Sales [color: #a78bfa] {
+  orders
+}
+```
+
+- Use `#rgb` or `#rrggbb` colors; omitted/invalid colors fall back to a stable palette derived from the group name. Invalid colors produce a warning.
+- Quoted names, schema-qualified table names, aliases, forward declarations, and `Note: '...'` / `Note { '...' }` inside a group are supported. Hover a group title to read its full name and note; very long visible names are shortened.
+- Automatic layout packs group blocks separately and places ungrouped tables outside them. **Reset layout** clears personal positions/routes and applies the new group-aware layout. Previously saved table positions are respected until then.
+- Drag **table headers**, not the frame, to move individual tables: the frame expands/shrinks immediately. Frames do not constrain table movement, and moving tables into another frame does **not** change DBML membership. Edit the `TableGroup` body to change membership. Moving a whole group as a single object is not supported.
+- SVG and PNG export include names, colors, frame bounds, and saved table positions. PNG size/memory safety limits still apply. A group's frame is visual background, not an obstacle for relationship lines.
+- Unknown or duplicate members produce source-located warnings; empty/unresolved groups draw no frame. Multiple membership is warned about: the first group controls automatic placement and frames can overlap. Manual overlap is also retained, not silently rearranged.
+- Groups do not change SQL output, create database schemas, or upload local layout settings to dbdiagram.io. Standalone sticky notes are not yet rendered.
+
+Try [the public synthetic storefront example](examples/table-groups.dbml) (six tables, three domains, valid FK-to-PK arrows, and CHECK expressions). These screenshots are generated from the actual interactive preview, not an illustrative mockup:
+
+![TableGroup domains in the dark preview](docs/images/table-groups-dark.png)
+
+[Light-theme preview](docs/images/table-groups-light.png). The example and screenshots can be reused for a future Habr walkthrough; no private reproduction schemas are included.
 
 ## CHECK constraints and composite keys (1.0.3)
 
@@ -34,7 +68,7 @@ The local parser accepts both `checks { ... }` and column settings such as ``[ch
 
 Composite references use the [DBML syntax](https://dbml.dbdiagram.io/docs/) `Ref: tasks.(department_id, tenant_id) > departments.(id, tenant_id)`. Column counts and positional types must match, the target tuple must form a complete PK/UNIQUE key, and FK uniqueness is checked across the entire tuple, including unique subsets. See [the public synthetic example](examples/checks-composite.dbml).
 
-These are schema-processing improvements, not automatic database/schema tuning: the plugin does not rewrite your DBML, evaluate CHECK expressions, or execute SQL. `TableGroup` and standalone sticky notes remain visualization-only warnings in the local preview.
+These are schema-processing improvements, not automatic database/schema tuning: the plugin does not rewrite your DBML, evaluate CHECK expressions, or execute SQL. In 2.0.0, `TableGroup` is visualized as described above; standalone sticky notes remain unsupported.
 
 ## dbdiagram.io integration (1.0.0)
 
@@ -89,6 +123,8 @@ The build uses Gradle **9.7.0**, Kotlin **2.4.21**, IntelliJ Platform Gradle Plu
 `testPackagedPlugin` checks the actual ZIP libraries in an isolated child-first classloader and rasterizes a PNG, guarding against bundled XML APIs that conflict with IntelliJ. For preview interaction geometry, run `node dbml-intellij-plugin/src/test/js/preview-routing.test.cjs` (Node is needed only for this optional test).
 
 With Playwright and a Chromium browser installed, `node dbml-intellij-plugin/src/test/js/preview-pointer.test.cjs` checks actual pointer events, attachment clicks, zoomed dragging, persistence messages, and live obstacle avoidance using the HTML generated by the Gradle tests. Set `DBML_BROWSER_CHANNEL=msedge` to test with installed Microsoft Edge instead of Playwright Chromium.
+
+`node dbml-intellij-plugin/src/test/js/preview-groups.test.cjs` checks light/dark group rendering, label bounds, repeated/zoomed table dragging, live frame expansion/shrink, and restored positions. Gradle tests generate the public showcase's SVG/PNG/HTML under `dbml-intellij-plugin/build/reports/table-groups/`; the browser test adds `table-groups-light.png` and `table-groups-dark.png` screenshots there. Playwright is a test-only dependency, not required to use the plugin. Install it in a separate tooling environment with `npm install playwright` and `npx playwright install chromium`, or use your existing installation through `NODE_PATH`. Do not install npm tooling into the plugin repository just to use local preview/export.
 
 By default, `verifyPlugin` checks IDEA 2024.1.7, 2025.2.6, and 2026.2.3. To verify installed IDEs instead, run `./gradlew :dbml-intellij-plugin:verifyPlugin -PverifyLocalIde="/path/to/IDE"`. The local override avoids downloading the default matrix. Multiple local IDE paths may be separated by the operating system's path separator (`;` on Windows, `:` on Unix). Use `--offline` once build dependencies are cached.
 
