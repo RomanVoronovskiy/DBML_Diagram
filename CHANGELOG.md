@@ -4,6 +4,18 @@ All notable changes to DBML Diagram are documented in this file. The project fol
 
 ## [Unreleased]
 
+## [2.1.0] - 2026-10-23
+
+### Free SVG canvas
+
+- Separate world coordinates from the preview camera. Remove left/top clamps from table movement, saved positions, relationship controls, and obstacle routing. Existing saved layouts remain readable without migration.
+- Add a world-aligned dot grid and optional 24-unit snapping. Pan on the background, with **Space + drag** over any object, or with the middle mouse button. Ordinary wheel/trackpad scrolling pans; **Ctrl/Cmd + wheel** zooms around the cursor. Toolbar zoom uses the viewport center.
+- Drag the title band of a TableGroup to move its resolved member tables together. Translate internal relationship controls with the group; reroute external and obstructed connections. Validate and save each group move as one batch, without rewriting DBML membership or changing other tables.
+- Save the per-file camera and grid/snap preferences in IDE workspace settings. Refresh/text edits retain the camera; viewport resize preserves zoom and the world point at its center. Reset layout also resets the camera/preferences. Pointer cancellation/focus loss ends active gestures without leaving a stuck panning mode.
+- Compute Fit and export bounds from current tables, group frames, and relationship lines. Standalone SVG uses a tight world-coordinate viewBox; PNG supports the same negative/distant-positive coordinates without exporting the empty space back to zero. PNG dimension/pixel safety limits remain in effect.
+- Coalesce full live rerouting into one pass per animation frame and reuse table/obstacle geometry within that pass. Continue checking unrelated connections for obstruction by moved cards.
+- Add regression coverage for negative-coordinate geometry/PNG, translation-invariant exports, group batches, persistence, real-pointer navigation, anchored zoom, grid/snap, repeated group dragging, Fit, resize, and existing arrow interactions. Keep SVG rendering; this is not a switch to the HTML Canvas raster API. Multi-selection and layout Undo/Redo are not included.
+
 ## [2.0.0] - 2026-10-22
 
 ### Colored TableGroup visualization

@@ -5,6 +5,8 @@ import io.github.dbmldiagram.core.model.DbmlSchema
 import io.github.dbmldiagram.core.model.DbmlTable
 import kotlin.math.max
 import kotlin.math.sqrt
+import kotlin.math.floor
+import kotlin.math.ceil
 
 /** Deterministic, dependency-free layered layout suitable for offline previews. */
 class LayeredDiagramLayoutEngine(
@@ -58,7 +60,7 @@ class LayeredDiagramLayoutEngine(
         val positionsByTable = manualPositions.entries.associate { it.key.lowercase() to it.value }
         val positionedNodes = autoNodes.map { node ->
             positionsByTable[node.tableId.lowercase()]?.let { position ->
-                node.copy(x = position.x.coerceAtLeast(margin), y = position.y.coerceAtLeast(margin))
+                if (position.x.isFinite() && position.y.isFinite()) node.copy(x = position.x, y = position.y) else node
             } ?: node
         }
         val nodeMap = positionedNodes.associateBy { it.tableId.lowercase() }
@@ -103,11 +105,15 @@ class LayeredDiagramLayoutEngine(
             )
         }
         val routePoints = edges.flatMap { it.points }
-        val width = maxOf(640.0, positionedNodes.maxOf { it.x + it.width } + margin,
-            (routePoints.maxOfOrNull { it.x } ?: 0.0) + margin, (groups.maxOfOrNull { it.x + it.width } ?: 0.0) + margin)
-        val height = maxOf(360.0, positionedNodes.maxOf { it.y + it.height } + margin,
-            (routePoints.maxOfOrNull { it.y } ?: 0.0) + margin, (groups.maxOfOrNull { it.y + it.height } ?: 0.0) + margin)
-        return DiagramLayout(positionedNodes, edges, width, height, groups)
+        val left = floor(minOf(positionedNodes.minOf { it.x }, routePoints.minOfOrNull { it.x } ?: Double.POSITIVE_INFINITY,
+            groups.minOfOrNull { it.x } ?: Double.POSITIVE_INFINITY) - margin)
+        val top = floor(minOf(positionedNodes.minOf { it.y }, routePoints.minOfOrNull { it.y } ?: Double.POSITIVE_INFINITY,
+            groups.minOfOrNull { it.y } ?: Double.POSITIVE_INFINITY) - margin)
+        val right = maxOf(positionedNodes.maxOf { it.x + it.width }, routePoints.maxOfOrNull { it.x } ?: Double.NEGATIVE_INFINITY,
+            groups.maxOfOrNull { it.x + it.width } ?: Double.NEGATIVE_INFINITY) + margin
+        val bottom = maxOf(positionedNodes.maxOf { it.y + it.height }, routePoints.maxOfOrNull { it.y } ?: Double.NEGATIVE_INFINITY,
+            groups.maxOfOrNull { it.y + it.height } ?: Double.NEGATIVE_INFINITY) + margin
+        return DiagramLayout(positionedNodes, edges, maxOf(640.0, ceil(right - left)), maxOf(360.0, ceil(bottom - top)), groups, left, top)
     }
 
     /** Pack independent group blocks; manual positions still take precedence over auto-layout. */

@@ -15,6 +15,15 @@ internal class DiagramPositionStore(project: Project, file: VirtualFile) {
     private val properties = PropertiesComponent.getInstance(project)
     private val key = "io.github.dbmldiagram.layout.${sha256(file.url).take(24)}"
     private val routeKey = "$key.routes"
+    private val viewKey = "$key.view"
+
+    fun loadView(): PreviewViewState? = properties.getValue(viewKey)?.let { PreviewChangeDecoder.decode(it)?.view }
+
+    fun saveView(view: PreviewViewState) {
+        properties.setValue(viewKey, "V\t${view.scale}\t${view.x}\t${view.y}\t${if (view.grid) 1 else 0}\t${if (view.snap) 1 else 0}")
+    }
+
+    fun clearView() = properties.unsetValue(viewKey)
 
     fun load(): Map<String, DiagramPoint> = properties.getValue(key)
         ?.lineSequence()

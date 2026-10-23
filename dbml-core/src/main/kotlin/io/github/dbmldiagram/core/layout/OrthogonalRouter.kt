@@ -41,8 +41,8 @@ object OrthogonalRouter {
     private fun freeControl(p: DiagramPoint, boxes: List<Box>): DiagramPoint {
         if (boxes.none { inside(p, it) }) return p
         val candidates = boxes.flatMap { r -> listOf(
-            DiagramPoint(r.left.coerceAtLeast(20.0), p.y), DiagramPoint(r.right, p.y),
-            DiagramPoint(p.x, r.top.coerceAtLeast(20.0)), DiagramPoint(p.x, r.bottom),
+            DiagramPoint(r.left, p.y), DiagramPoint(r.right, p.y),
+            DiagramPoint(p.x, r.top), DiagramPoint(p.x, r.bottom),
         ) }.filter { q -> boxes.none { inside(q, it) } }
         return candidates.minByOrNull { abs(it.x - p.x) + abs(it.y - p.y) } ?: p
     }

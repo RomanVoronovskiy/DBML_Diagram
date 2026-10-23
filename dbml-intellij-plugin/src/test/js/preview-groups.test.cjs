@@ -24,12 +24,12 @@ const { chromium } = require('playwright');
           const label = g.querySelector('.table-group-label').getBBox(), count = g.querySelector('.table-group-count').getBBox();
           if (label.x + label.width > count.x - 8) failures.push('label/count overlap: ' + g.dataset.tableGroup);
           const svg = document.querySelector('svg');
-          if (x < 0 || y < 0 || x + w > +svg.getAttribute('width') || y + h > +svg.getAttribute('height')) failures.push('canvas clips ' + g.dataset.tableGroup);
+          if (getComputedStyle(svg).overflow !== 'visible') failures.push('world canvas clips overflow: ' + g.dataset.tableGroup);
         });
         return failures;
       });
     }
-    const bounds = name => page.locator(`g[data-table-group="${name}"] rect`).evaluate(e => ['x', 'y', 'width', 'height'].map(a => +e.getAttribute(a)));
+    const bounds = name => page.locator(`g[data-table-group="${name}"] .table-group-frame`).evaluate(e => ['x', 'y', 'width', 'height'].map(a => +e.getAttribute(a)));
     async function dragTable(name, dx, dy) {
       const header = page.locator(`g[data-table="${name}"] .head`);
       const box = await header.boundingBox();

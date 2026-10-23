@@ -72,7 +72,7 @@ const { chromium } = require('playwright');
     const payloads = await page.evaluate(() => window.savedPayloads);
     assert.ok(payloads.filter(p => p.startsWith('R\t')).length >= 6, 'Attachment changes must be sent for persistence');
     const lastRoute = payloads.filter(p => p.startsWith('R\t')).at(-1).split('\t');
-    assert.equal(lastRoute.length, 9);
+    assert.equal(lastRoute.length, 11);
     assert.equal(lastRoute[2], 'right'); assert.equal(lastRoute[3], 'left');
     // Reproduce the reported layout: users above orders, old control point crossing users.
     await page.evaluate(() => { actual(); });

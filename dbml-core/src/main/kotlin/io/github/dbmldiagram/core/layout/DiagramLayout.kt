@@ -5,7 +5,8 @@ import io.github.dbmldiagram.core.model.DbmlSchema
 import io.github.dbmldiagram.core.model.DbmlTableGroup
 
 data class DiagramLayout(val nodes: List<TableNode>, val edges: List<RelationEdge>, val width: Double, val height: Double,
-                         val groups: List<TableGroupNode> = emptyList())
+                         val groups: List<TableGroupNode> = emptyList(),
+                         val originX: Double = 0.0, val originY: Double = 0.0)
 
 data class TableGroupNode(val group: DbmlTableGroup, val tableIds: List<String>, val x: Double, val y: Double,
                           val width: Double, val height: Double, val color: String)

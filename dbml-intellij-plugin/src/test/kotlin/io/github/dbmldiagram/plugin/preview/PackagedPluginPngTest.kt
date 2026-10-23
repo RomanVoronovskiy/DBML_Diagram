@@ -68,7 +68,9 @@ class PackagedPluginPngTest {
                 assertEquals(false, result.javaClass.getMethod("getHasErrors").invoke(result))
                 val schema = result.javaClass.getMethod("getSchema").invoke(result)
                 val layoutClass = loader.loadClass("io.github.dbmldiagram.core.layout.LayeredDiagramLayoutEngine")
-                val engine = layoutClass.getConstructor(Map::class.java, Map::class.java).newInstance(emptyMap<String, Any>(), emptyMap<String, Any>())
+                val pointConstructor = loader.loadClass("io.github.dbmldiagram.core.layout.DiagramPoint").getConstructor(Double::class.javaPrimitiveType, Double::class.javaPrimitiveType)
+                val positions = mapOf("users" to pointConstructor.newInstance(-900.0, -650.0), "orders" to pointConstructor.newInstance(-300.0, -350.0))
+                val engine = layoutClass.getConstructor(Map::class.java, Map::class.java).newInstance(positions, emptyMap<String, Any>())
                 val layout = layoutClass.getMethod("layout", schema.javaClass).invoke(engine, schema)
                 val rendererClass = loader.loadClass("io.github.dbmldiagram.core.renderer.SvgDiagramRenderer")
                 val svg = rendererClass.getMethod("render", schema.javaClass, layout.javaClass).invoke(rendererClass.getConstructor().newInstance(), schema, layout) as String
@@ -76,6 +78,7 @@ class PackagedPluginPngTest {
                 assertTrue(svg.contains("FK orders.(user_id, tenant_id)"))
                 assertTrue(svg.contains("data-table-group=\"Accounts\""))
                 assertTrue(svg.contains("stroke=\"#10b981\""))
+                assertTrue("Export must contain a negative-origin viewBox", svg.contains("viewBox=\"-"))
                 val writer = loader.loadClass("io.github.dbmldiagram.plugin.preview.PngDiagramWriter")
                 assertSame(loader, writer.classLoader)
                 val bytes = writer.getMethod("encode", String::class.java).invoke(writer.getField("INSTANCE").get(null), svg) as ByteArray
