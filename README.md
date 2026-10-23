@@ -4,7 +4,7 @@
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 [![IntelliJ Platform](https://img.shields.io/badge/IntelliJ%20Platform-2024.1--2026.2-purple.svg)](https://plugins.jetbrains.com/)
 
-DBML Diagram is an open-source IntelliJ Platform plugin that shows a realtime SVG entity-relationship diagram next to a `.dbml` file. Version **2.0.0** adds colored, named **TableGroup** frames and group-aware layout, supports Platform builds **241–262** (2024.1–2026.2), and retains CHECK constraints, composite foreign keys, and optional dbdiagram.io synchronization. Local editing, preview, validation, and exports remain offline. It supports IntelliJ IDEA and DataGrip-compatible Platform IDEs.
+DBML Diagram is an open-source IntelliJ Platform plugin that shows a realtime SVG entity-relationship diagram next to a `.dbml` file. Version **2.1.0** adds a **free SVG canvas** with world-grid navigation, unrestricted left/up movement, and whole-group dragging. It supports Platform builds **241–262** (2024.1–2026.2) and retains colored TableGroup frames, CHECK constraints, composite foreign keys, and optional dbdiagram.io synchronization. Local editing, preview, validation, and exports remain offline. It supports IntelliJ IDEA and DataGrip-compatible Platform IDEs.
 
 ## Features
 
@@ -13,9 +13,11 @@ DBML Diagram is an open-source IntelliJ Platform plugin that shows a realtime SV
 - Reuse the most recent parse result when only the diagram layout changes, and skip superseded work between rendering stages.
 - Last valid diagram remains visible while the document contains a parse error.
 - Semantic relationship errors are underlined in the editor and drawn in red in the current diagram. Exports are disabled until the current document is valid.
-- Pan, Ctrl/Cmd + mouse-wheel zoom, Fit, zoom buttons, 100%, and manual Refresh.
+- Free world coordinates, Space/middle-button/background panning, wheel scrolling, cursor-anchored Ctrl/Cmd + mouse-wheel zoom, Fit, zoom buttons, 100%, and manual Refresh.
+- World-aligned dot grid with optional 24-unit snapping; per-file camera and navigation preferences.
 - Drag tables by their headers; personal positions are restored per DBML file.
 - Colored `TableGroup` frames with names, member counts, group-aware auto-layout, live resizing, and matching SVG/PNG exports.
+- Whole-group movement by dragging its title band; table positions and internal route controls are saved together.
 - Drag relationship lines to adjust their orthogonal route. A selected route has separate horizontal and vertical handles, while its endpoints can move between the top, right, bottom, and left table anchors.
 - Full-diagram standalone SVG and PNG export. PNG rasterization uses Apache Batik and has a 16,384 px / 40 MP safety limit.
 - PostgreSQL, MySQL, and Oracle DDL export with named primary, unique, and foreign-key constraints, indexes, defaults, comments, and referential actions.
@@ -28,6 +30,29 @@ DBML Diagram is an open-source IntelliJ Platform plugin that shows a realtime SV
 - Optional dbdiagram.io browser login through the official CLI, or a workspace API token stored in IDE PasswordSafe.
 - Search and select remote diagrams in **My Diagrams**, download DBML, link an existing file, and explicitly Pull or Push.
 - Local editing, preview, validation, and SVG/PNG/DDL exports do not require an account, network access, Node.js, or CLI tools.
+
+## Free canvas navigation (2.1.0)
+
+The preview is a free **SVG-based canvas**, not a replacement using the HTML Canvas raster API. Tables and route controls can move left/up through zero into negative world coordinates. Existing personal positions remain compatible.
+
+| Action | Gesture |
+| --- | --- |
+| Pan anywhere, including over a card, relationship, or group header | **Space + left drag**, or **middle-button drag** |
+| Pan from empty space | Left drag |
+| Pan with a wheel/trackpad | Scroll; **Shift + wheel** pans horizontally |
+| Zoom around the mouse cursor | **Ctrl/Cmd + wheel** |
+| Move one table | Drag its header |
+| Move a whole TableGroup | Drag its title or empty title band |
+| Toggle the world grid / optional snapping | **Grid** / **Snap** in the bottom-left canvas controls |
+| Show the current contents / center at actual size | **Fit** / **100%** in the editor toolbar |
+
+Snap uses a 24-unit world grid, independent of zoom. A group moves by one shared delta, so member spacing is preserved. Internal relationship controls move with it; all lines are checked again for table obstacles. Moving a card into a frame does not change its membership: edit DBML for that. Shared membership/manual overlapping cards can still produce overlapping frames or blocked routes.
+
+Camera position, zoom, grid/snap preferences, table positions, and routes are kept per DBML file in IDE workspace settings. Refresh and text edits retain the current camera. Resizing the panel retains zoom and the world point at the viewport center. **Reset layout** clears these settings and returns to automatic placement; it does not change source DBML.
+
+Fit considers current content bounds, not the history of how far an object was dragged. SVG/PNG export includes the complete diagram (not just the viewport), cropping around tables, frames, and routes even when coordinates are negative or far from zero. The navigation grid is not exported. PNG retains its 16,384 px / 40 MP limit; spreading cards very far apart can still exceed that limit. Large layouts still require routing/rendering work; this is not a guarantee of unlimited diagram size. Layout multi-selection and Undo/Redo are not part of 2.1.0.
+
+![Free canvas with grid, colored groups and world-coordinate navigation](docs/images/free-canvas-dark.png)
 
 ## Colored TableGroup frames (2.0.0)
 
@@ -51,7 +76,7 @@ TableGroup Sales [color: #a78bfa] {
 - Use `#rgb` or `#rrggbb` colors; omitted/invalid colors fall back to a stable palette derived from the group name. Invalid colors produce a warning.
 - Quoted names, schema-qualified table names, aliases, forward declarations, and `Note: '...'` / `Note { '...' }` inside a group are supported. Hover a group title to read its full name and note; very long visible names are shortened.
 - Automatic layout packs group blocks separately and places ungrouped tables outside them. **Reset layout** clears personal positions/routes and applies the new group-aware layout. Previously saved table positions are respected until then.
-- Drag **table headers**, not the frame, to move individual tables: the frame expands/shrinks immediately. Frames do not constrain table movement, and moving tables into another frame does **not** change DBML membership. Edit the `TableGroup` body to change membership. Moving a whole group as a single object is not supported.
+- Drag **table headers** to move individual tables: the frame expands/shrinks immediately. In 2.1.0, drag the **group title band** to move all its members together. Frames do not constrain table movement, and moving tables into another frame does **not** change DBML membership. Edit the `TableGroup` body to change membership.
 - SVG and PNG export include names, colors, frame bounds, and saved table positions. PNG size/memory safety limits still apply. A group's frame is visual background, not an obstacle for relationship lines.
 - Unknown or duplicate members produce source-located warnings; empty/unresolved groups draw no frame. Multiple membership is warned about: the first group controls automatic placement and frames can overlap. Manual overlap is also retained, not silently rearranged.
 - Groups do not change SQL output, create database schemas, or upload local layout settings to dbdiagram.io. Standalone sticky notes are not yet rendered.
@@ -125,6 +150,8 @@ The build uses Gradle **9.7.0**, Kotlin **2.4.21**, IntelliJ Platform Gradle Plu
 With Playwright and a Chromium browser installed, `node dbml-intellij-plugin/src/test/js/preview-pointer.test.cjs` checks actual pointer events, attachment clicks, zoomed dragging, persistence messages, and live obstacle avoidance using the HTML generated by the Gradle tests. Set `DBML_BROWSER_CHANNEL=msedge` to test with installed Microsoft Edge instead of Playwright Chromium.
 
 `node dbml-intellij-plugin/src/test/js/preview-groups.test.cjs` checks light/dark group rendering, label bounds, repeated/zoomed table dragging, live frame expansion/shrink, and restored positions. Gradle tests generate the public showcase's SVG/PNG/HTML under `dbml-intellij-plugin/build/reports/table-groups/`; the browser test adds `table-groups-light.png` and `table-groups-dark.png` screenshots there. Playwright is a test-only dependency, not required to use the plugin. Install it in a separate tooling environment with `npm install playwright` and `npx playwright install chromium`, or use your existing installation through `NODE_PATH`. Do not install npm tooling into the plugin repository just to use local preview/export.
+
+`node dbml-intellij-plugin/src/test/js/preview-canvas.test.cjs` exercises real-pointer free-canvas navigation, negative table positions, atomic/repeated group dragging, Space/middle/wheel panning, anchored zoom, grid/snap, Fit, resize, restored camera, and per-animation-frame rerouting. Gradle generates synthetic SVG/PNG/HTML fixtures under `dbml-intellij-plugin/build/reports/free-canvas/`; the browser test adds light/dark screenshots and the actual group-move payload there. These are synthetic examples, not private user diagrams.
 
 By default, `verifyPlugin` checks IDEA 2024.1.7, 2025.2.6, and 2026.2.3. To verify installed IDEs instead, run `./gradlew :dbml-intellij-plugin:verifyPlugin -PverifyLocalIde="/path/to/IDE"`. The local override avoids downloading the default matrix. Multiple local IDE paths may be separated by the operating system's path separator (`;` on Windows, `:` on Unix). Use `--offline` once build dependencies are cached.
 

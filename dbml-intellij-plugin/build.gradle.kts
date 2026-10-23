@@ -77,6 +77,15 @@ intellijPlatform {
 tasks {
     patchPluginXml {
         changeNotes = """
+            <h3>2.1.0 — Free SVG canvas</h3>
+            <ul>
+              <li>Move tables and relationship controls freely in all directions, including negative world coordinates.</li>
+              <li>Pan over objects with Space + drag or the middle mouse button; scroll to pan and Ctrl/Cmd + scroll to zoom around the cursor.</li>
+              <li>Drag a TableGroup header to move its member tables together, preserving internal route controls in one layout update.</li>
+              <li>Toggle the world grid and optional 24-unit snapping; retain camera, grid, snap, table positions, and routes per file.</li>
+              <li>Fit and SVG/PNG export use actual content bounds, without clipping negative positions or exporting the empty space back to zero.</li>
+              <li>Batch live obstacle rerouting per animation frame and reuse obstacle geometry within each routing pass.</li>
+            </ul>
             <h3>2.0.0 — Colored TableGroup frames</h3>
             <ul>
               <li>Render named TableGroup frames with custom colors or a stable default palette.</li>

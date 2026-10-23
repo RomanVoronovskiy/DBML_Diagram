@@ -19,6 +19,10 @@
   <li>Organize tables with named, colored TableGroup frames and group-aware automatic layout</li>
   <li>Resize group frames live as tables move; keep group labels and colors in SVG/PNG exports</li>
   <li>Pan, zoom, fit, reset, and refresh the diagram</li>
+  <li>Move freely through negative world coordinates on a dot grid, with optional snapping</li>
+  <li>Pan over objects with Space + drag or the middle mouse button; zoom around the cursor with Ctrl/Cmd + wheel</li>
+  <li>Drag a group title band to move its member tables and internal route controls together</li>
+  <li>Keep the per-file camera, zoom, and grid/snap preferences between refreshes and sessions</li>
   <li>Export the complete diagram as SVG or PNG</li>
 </ul>
 
@@ -57,7 +61,7 @@
   Keep database schemas together with source code, review schema changes, and maintain DBML documentation without leaving the IDE.
 </p>
 <p>
-  Version 2.0.0 visualizes TableGroup declarations as colored frames with names and member counts, with group-aware layout and live resizing. Custom hex colors and a default palette work in light/dark previews and SVG/PNG exports. Saved table positions remain in effect; Reset layout applies the new grouping. Group membership is defined by DBML, not by dragging a table into a frame. Standalone sticky Note blocks remain unsupported. CHECK constraints, composite foreign keys, SQL exports, and optional dbdiagram.io sync are retained. CHECK expressions are preserved, not evaluated or translated between SQL dialects. Supports IntelliJ Platform builds 241–262 (2024.1–2026.2).
+  Version 2.1.0 adds a free SVG canvas with left/up movement through zero, optional world-grid snapping, whole-group dragging, and improved navigation. Fit and full-diagram SVG/PNG export use actual content bounds, including negative coordinates; the grid is not exported. PNG size limits still apply. Colored TableGroup frames, CHECK constraints, composite foreign keys, SQL exports, and optional dbdiagram.io sync are retained. Group membership is defined by DBML, not by dragging into a frame. Standalone sticky Notes remain unsupported; multi-selection and layout Undo/Redo are not included. CHECK expressions are preserved, not evaluated or translated between SQL dialects. Supports IntelliJ Platform builds 241–262 (2024.1–2026.2).
 </p>
 
 <p>

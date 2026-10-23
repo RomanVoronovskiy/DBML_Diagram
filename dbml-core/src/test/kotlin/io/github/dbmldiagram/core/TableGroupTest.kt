@@ -125,7 +125,7 @@ class TableGroupTest {
         val users = layout.nodes.single { it.tableId == "users" }
         assertEquals(1800.0, users.x)
         assertEquals(1400.0, users.y)
-        assertEquals(48.0, layout.nodes.single { it.tableId == "profiles" }.x)
+        assertEquals(-1.0, layout.nodes.single { it.tableId == "profiles" }.x)
         assertFramesContainMembers(layout)
     }
 
@@ -179,8 +179,8 @@ class TableGroupTest {
 
     private fun assertFramesContainMembers(layout: DiagramLayout) {
         layout.groups.forEach { g ->
-            assertTrue(g.x >= 0 && g.y >= 0)
-            assertTrue(g.x + g.width < layout.width && g.y + g.height < layout.height)
+            assertTrue(g.x >= layout.originX && g.y >= layout.originY)
+            assertTrue(g.x + g.width < layout.originX + layout.width && g.y + g.height < layout.originY + layout.height)
             layout.nodes.filter { it.tableId in g.tableIds }.forEach { n ->
                 assertTrue(n.x >= g.x + 24 && n.y >= g.y + 40)
                 assertTrue(n.x + n.width <= g.x + g.width - 24 && n.y + n.height <= g.y + g.height - 24)
