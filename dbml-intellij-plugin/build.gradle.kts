@@ -32,8 +32,8 @@ configurations.configureEach {
 
 dependencies {
     implementation(project(":dbml-core"))
-    implementation("org.apache.xmlgraphics:batik-transcoder:1.19")
-    implementation("org.apache.xmlgraphics:batik-codec:1.19")
+    implementation("org.apache.xmlgraphics:batik-transcoder:1.20")
+    implementation("org.apache.xmlgraphics:batik-codec:1.20")
     testImplementation("junit:junit:4.13.2")
     // Standalone packaged-ZIP tests do not get the IDE bootstrap classloader.
     testImplementation("org.jetbrains.kotlin:kotlin-stdlib:1.9.22")
