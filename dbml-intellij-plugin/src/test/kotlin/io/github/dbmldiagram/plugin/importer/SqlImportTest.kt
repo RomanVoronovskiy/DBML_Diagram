@@ -1,0 +1,128 @@
+package io.github.dbmldiagram.plugin.importer
+
+import io.github.dbmldiagram.core.model.DbmlCardinality
+import io.github.dbmldiagram.core.parser.TolerantDbmlParser
+import org.junit.Assert.*
+import org.junit.Test
+import org.junit.Assume.assumeTrue
+import java.nio.file.Files
+import java.nio.file.Path
+
+class SqlImportTest {
+    private fun configuredPaths(): SqlImportPaths {
+        val node = System.getenv("DBML_SQL_IMPORT_NODE")
+        val entry = System.getenv("DBML_SQL_IMPORT_ENTRY")
+        assumeTrue("Set DBML_SQL_IMPORT_NODE and DBML_SQL_IMPORT_ENTRY for official converter integration tests", node != null && entry != null)
+        return SqlImportPaths(node!!, entry!!)
+    }
+    @Test fun `unique FK import becomes one to one without reversing foreign key ownership`() {
+        val converted = """
+            Table "users" { "id" bigint [pk] }
+            Table "profiles" { "user_id" bigint [pk] }
+            Ref "fk_profile": "profiles"."user_id" > "users"."id" [delete: cascade]
+        """.trimIndent()
+        val normalized = SqlImportService.normalizeCardinality(converted)
+        val result = TolerantDbmlParser().parse(normalized)
+        assertEquals(emptyList<Any>(), result.errors)
+        val ref = result.schema!!.references.single()
+        assertEquals(DbmlCardinality.ONE_TO_ONE, ref.cardinality)
+        assertEquals("profiles", ref.foreignKeyEndpoint()!!.table)
+        assertEquals("cascade", ref.onDelete)
+        assertEquals("fk_profile", ref.name)
+    }
+
+    @Test fun `part of composite FK remains many and complete unique tuple becomes one`() {
+        val dbml = """
+            Table parent {
+              a int
+              b int
+              indexes { (a, b) [pk] }
+            }
+            Table child {
+              x int
+              y int
+              indexes { (x, y) [unique] }
+            }
+            Ref: parent.(a,b) < child.(x,y)
+        """.trimIndent()
+        val result = TolerantDbmlParser().parse(SqlImportService.normalizeCardinality(dbml))
+        assertFalse(result.hasErrors)
+        assertEquals(DbmlCardinality.ONE_TO_ONE, result.schema!!.references.single().cardinality)
+    }
+
+    @Test fun `configured command treats spaces and shell symbols as literal paths`() {
+        val dir = Files.createTempDirectory("SQL import spaces ")
+        try {
+            val node = Files.createFile(dir.resolve("node.exe"))
+            val entry = Files.createFile(dir.resolve("sql2dbml.js"))
+            val command = SqlImportPaths(node.toString(), entry.toString()).command(dir.resolve("a & b.sql"), dir.resolve("output.dbml"), SqlImportDialect.POSTGRESQL)
+            assertEquals(listOf(node.toString(), entry.toString(), dir.resolve("a & b.sql").toString(), "--postgres", "-o", dir.resolve("output.dbml").toString()), command)
+        } finally { Files.walk(dir).use { it.sorted(Comparator.reverseOrder()).forEach(Files::deleteIfExists) } }
+    }
+
+    @Test fun `empty input and missing tools fail before creating output`() {
+        for (sql in listOf("", "CREATE TABLE t(id int);")) {
+            try { SqlImportService.convert(sql, SqlImportPaths("", ""), SqlImportDialect.POSTGRESQL); fail("Must fail") }
+            catch (expected: IllegalArgumentException) { assertNotNull(expected.message) }
+        }
+    }
+
+    @Test fun `optional real official CLI converts the PostgreSQL showcase`() {
+        val paths = configuredPaths()
+        val sql = Files.readString(Path.of("../examples/sql-import.sql"))
+        val dbml = SqlImportService.convert(sql, paths, SqlImportDialect.POSTGRESQL)
+        val result = TolerantDbmlParser().parse(dbml)
+        assertEquals(result.errors.toString(), emptyList<Any>(), result.errors)
+        val schema = result.schema!!
+        assertEquals(5, schema.tables.size)
+        assertEquals(4, schema.references.size)
+        assertEquals(1, schema.enums.size)
+        assertEquals(1, schema.references.count { it.cardinality == DbmlCardinality.ONE_TO_ONE })
+        assertEquals("Цена в рублях", schema.tables.single { it.name == "courses" }.columns.single { it.name == "price" }.note)
+        assertTrue(schema.tables.single { it.name == "students" }.columns.single { it.name == "id" }.increment)
+        assertTrue(schema.tables.single { it.name == "enrollments" }.indexes.any { it.primaryKey && it.columns.size == 2 })
+        assertEquals("cascade", schema.references.single { it.foreignKeyEndpoint()!!.table == "lessons" }.onDelete)
+    }
+
+    @Test fun `real CLI imports MySQL and Oracle unique foreign keys`() {
+        val paths = configuredPaths()
+        for ((dialect, sql) in listOf(
+            SqlImportDialect.MYSQL to "CREATE TABLE users (id bigint AUTO_INCREMENT PRIMARY KEY); CREATE TABLE profiles (user_id bigint PRIMARY KEY, FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE);",
+            SqlImportDialect.ORACLE to "CREATE TABLE users (id NUMBER GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY); CREATE TABLE profiles (user_id NUMBER PRIMARY KEY); ALTER TABLE profiles ADD CONSTRAINT fk_profile FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE;"
+        )) {
+            val result = TolerantDbmlParser().parse(SqlImportService.convert(sql, paths, dialect))
+            assertEquals(dialect.toString()+result.errors, emptyList<Any>(), result.errors)
+            val ref = result.schema!!.references.single()
+            assertEquals(DbmlCardinality.ONE_TO_ONE, ref.cardinality)
+            assertTrue(ref.foreignKeyEndpoint()!!.table.equals("profiles", true))
+            // Upstream @dbml/cli 10.2.0 drops Oracle ALTER TABLE ON DELETE CASCADE.
+            assertEquals(if (dialect == SqlImportDialect.ORACLE) null else "cascade", ref.onDelete)
+        }
+    }
+
+    @Test fun `failed and cancelled converter leaves source alone and cleans private workspace`() {
+        val paths = configuredPaths()
+        val dir = Files.createTempDirectory("dbml-import-worker-test-")
+        try {
+            val entry = dir.resolve("worker.js")
+            Files.writeString(entry, "require('fs').writeFileSync(${jsString(dir.resolve("cwd.txt").toString())}, process.cwd()); console.error('synthetic failure'); process.exit(2);")
+            try {
+                SqlImportService.convert("CREATE TABLE t(id int);", SqlImportPaths(paths.node, entry.toString()), SqlImportDialect.POSTGRESQL)
+                fail("Must reject failed conversion")
+            } catch (expected: IllegalArgumentException) { assertTrue(expected.message!!.contains("synthetic failure")) }
+            val workspace = Path.of(Files.readString(dir.resolve("cwd.txt")))
+            assertFalse(Files.exists(workspace))
+            Files.writeString(entry, "require('fs').writeFileSync(${jsString(dir.resolve("cwd.txt").toString())}, process.cwd()); setInterval(()=>{},100);")
+            var polls = 0
+            try {
+                SqlImportService.convert("CREATE TABLE t(id int);", SqlImportPaths(paths.node, entry.toString()), SqlImportDialect.POSTGRESQL) {
+                    if (++polls > 8) throw java.util.concurrent.CancellationException("cancel")
+                }
+                fail("Must cancel running worker")
+            } catch (expected: java.util.concurrent.CancellationException) { assertEquals("cancel", expected.message) }
+            assertFalse(Files.exists(Path.of(Files.readString(dir.resolve("cwd.txt")))))
+        } finally { Files.walk(dir).use { it.sorted(Comparator.reverseOrder()).forEach(Files::deleteIfExists) } }
+    }
+
+    private fun jsString(value: String) = "'" + value.replace("\\", "\\\\").replace("'", "\\'") + "'"
+}

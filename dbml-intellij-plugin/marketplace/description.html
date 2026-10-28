@@ -24,12 +24,15 @@
   <li>Drag a group title band to move its member tables and internal route controls together</li>
   <li>Keep the per-file camera, zoom, and grid/snap preferences between refreshes and sessions</li>
   <li>Export the complete diagram as SVG or PNG</li>
+  <li>Display sticky Notes and project descriptions as movable cards, with saved positions and SVG/PNG export</li>
+  <li>Remove redundant out-and-back relationship tails after moving or reattaching connections</li>
 </ul>
 
 <p><b>DDL generation</b></p>
 <ul>
   <li>Generate PostgreSQL, MySQL, or Oracle DDL from the current DBML schema</li>
   <li>Export tables, primary keys, unique constraints, foreign keys, indexes, defaults, comments, and referential actions</li>
+  <li>Import PostgreSQL, MySQL, and Oracle DDL back into DBML from Tools or the preview toolbar, using the separately installed official @dbml/cli converter and Node.js</li>
 </ul>
 
 <p><b>IDE integration</b></p>
@@ -61,7 +64,7 @@
   Keep database schemas together with source code, review schema changes, and maintain DBML documentation without leaving the IDE.
 </p>
 <p>
-  Version 2.1.0 adds a free SVG canvas with left/up movement through zero, optional world-grid snapping, whole-group dragging, and improved navigation. Fit and full-diagram SVG/PNG export use actual content bounds, including negative coordinates; the grid is not exported. PNG size limits still apply. Colored TableGroup frames, CHECK constraints, composite foreign keys, SQL exports, and optional dbdiagram.io sync are retained. Group membership is defined by DBML, not by dragging into a frame. Standalone sticky Notes remain unsupported; multi-selection and layout Undo/Redo are not included. CHECK expressions are preserved, not evaluated or translated between SQL dialects. Supports IntelliJ Platform builds 241–262 (2024.1–2026.2).
+  Version 2.2.0 adds local SQL-to-DBML import, movable sticky Notes/project descriptions, and cleaner relationship routing. Import requires Node.js and npm install -g @dbml/cli; other local features retain their existing dependencies. Import does not execute SQL or require a database account. Review converted schemas before migrations. Notes wrap long text, retain full tooltips, and are included in Fit and SVG/PNG export. Free SVG canvas navigation, colored TableGroup frames, CHECK constraints, composite foreign keys, SQL exports, and optional dbdiagram.io sync are retained. PNG size limits still apply. Group membership comes from DBML. Multi-selection and layout Undo/Redo are not included. CHECK expressions are preserved rather than evaluated or translated. Supports IntelliJ Platform builds 241–262 (2024.1–2026.2).
 </p>
 
 <p>

@@ -30,6 +30,12 @@ jobs:
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v6
 
+      - name: Install pinned SQL-to-DBML test converter
+        run: |
+          npm install --prefix "$RUNNER_TEMP/dbml-cli" --ignore-scripts --no-audit --no-fund @dbml/cli@10.2.0
+          echo "DBML_SQL_IMPORT_NODE=$(command -v node)" >> "$GITHUB_ENV"
+          echo "DBML_SQL_IMPORT_ENTRY=$RUNNER_TEMP/dbml-cli/node_modules/@dbml/cli/bin/sql2dbml.js" >> "$GITHUB_ENV"
+
       - name: Test, build, and verify plugin
         run: ./gradlew test :dbml-intellij-plugin:testPackagedPlugin :dbml-intellij-plugin:verifyPlugin --stacktrace
 

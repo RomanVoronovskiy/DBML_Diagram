@@ -1,0 +1,25 @@
+Project education {
+  Note: 'Education schema: students, courses and lessons.'
+}
+
+Note reminder [color: #cef] {
+  'Review course deletion rules before migration.'
+}
+
+Note checklist {
+  '''Review constraints
+  Check indexes
+  Export SQL'''
+}
+
+Table courses {
+  id bigint [pk]
+}
+Table lessons {
+  id bigint [pk]
+  course_id bigint [ref: > courses.id]
+}
+TableGroup Education [color: #10b981] {
+  courses
+  lessons
+}

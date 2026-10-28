@@ -29,7 +29,7 @@ controls.querySelector = selector => handles[selector.includes('"from"') ? 'from
 const svg = element();
 svg.setAttribute('width', '1100'); svg.setAttribute('height', '400');
 const context = { document: { querySelectorAll(selector) {
-  if (selector === 'g[data-table]') return [users, orders];
+  if (selector === 'g[data-table]' || selector === 'g[data-table],g[data-note]') return [users, orders];
   if (selector === '.route-controls') return [controls];
   return [];
 } }, d: { querySelector: () => svg } };
@@ -74,7 +74,7 @@ function avoidsActualCards(route, cards) {
 avoidsActualCards(points, boxes);
 const obstacle = element({ table: 'third', x: '410', y: '300', width: '350', height: '80' });
 const baseQuery = context.document.querySelectorAll;
-context.document.querySelectorAll = selector => selector === 'g[data-table]' ? [users, orders, obstacle] : baseQuery(selector);
+context.document.querySelectorAll = selector => selector === 'g[data-table]' || selector === 'g[data-table],g[data-note]' ? [users, orders, obstacle] : baseQuery(selector);
 rel.dataset.controlX = '430'; rel.dataset.controlY = '146';
 avoidsActualCards(context.relationPoints(rel), context.routeBoxes());
 console.log('Obstacle routing passed: reported layout and unrelated table obstruction.');

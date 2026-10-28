@@ -74,8 +74,9 @@ object ParserRecoveryProbe {
                 check(result.schema!!.tables.map { it.name } == listOf("users", "orders"))
                 check(result.schema.references.size == 1)
                 check(result.schema.tableGroups.size == 2)
-                // Sticky Note is unsupported; the shared table produces a membership warning.
-                check(result.errors.size == 2)
+                // Sticky Note is rendered; only shared group membership produces a warning.
+                check(result.schema.notes.size == 1)
+                check(result.errors.size == 1)
                 check(result.errors.all { it.severity == DbmlParseSeverity.WARNING })
             }
             "unknown-blocks" -> {
@@ -229,7 +230,7 @@ object ParserRecoveryProbe {
                 val schema = result.schema!!
                 check(schema.tables.size == 72 && schema.references.size == 71)
                 check(schema.tables.sumOf { it.columns.size } == 1007)
-                check(result.errors.size == 1)
+                check(result.errors.isEmpty())
                 val layout = LayeredDiagramLayoutEngine().layout(schema)
                 val svg = SvgDiagramRenderer().render(schema, layout)
                 check(layout.nodes.size == 72 && layout.edges.size == 71)

@@ -12,9 +12,9 @@ import kotlin.math.ceil
 class LayeredDiagramLayoutEngine(
     private val manualPositions: Map<String, DiagramPoint> = emptyMap(),
     private val manualRoutes: Map<String, ManualRelationRoute> = emptyMap(),
+    private val manualNotes: Map<String, DiagramPoint> = emptyMap(),
 ) : DiagramLayoutEngine {
     override fun layout(schema: DbmlSchema): DiagramLayout {
-        if (schema.tables.isEmpty()) return DiagramLayout(emptyList(), emptyList(), 640.0, 360.0)
         val tablesByName = schema.tables.associateBy { it.qualifiedName.lowercase() }
         val incoming = schema.tables.associate { it.qualifiedName.lowercase() to 0 }.toMutableMap()
         val outgoing = mutableMapOf<String, MutableList<String>>()
@@ -64,6 +64,9 @@ class LayeredDiagramLayoutEngine(
             } ?: node
         }
         val nodeMap = positionedNodes.associateBy { it.tableId.lowercase() }
+        // Defaults follow deterministic auto-layout, so dragging a table never drags an untouched note.
+        val notes = NoteGeometry.layout(schema, autoNodes, manualNotes)
+        val obstacles = positionedNodes + notes.map { TableNode("", it.x, it.y, it.width, it.height) }
         val groups = schema.tableGroups.mapNotNull { group ->
             val members = group.tables.mapNotNull { it.resolve(schema.tables) }
                 .distinctBy { it.qualifiedName.lowercase() }
@@ -91,7 +94,7 @@ class LayeredDiagramLayoutEngine(
                 (startExit.x + endExit.x) / 2,
                 (startExit.y + endExit.y) / 2,
             )
-            val route = OrthogonalRouter.route(start, fromSide, end, toSide, control, positionedNodes)
+            val route = OrthogonalRouter.route(start, fromSide, end, toSide, control, obstacles)
             RelationEdge(
                 ref,
                 route.points,
@@ -104,16 +107,17 @@ class LayeredDiagramLayoutEngine(
                 toOffset,
             )
         }
+        if (obstacles.isEmpty()) return DiagramLayout(emptyList(), emptyList(), 640.0, 360.0)
         val routePoints = edges.flatMap { it.points }
-        val left = floor(minOf(positionedNodes.minOf { it.x }, routePoints.minOfOrNull { it.x } ?: Double.POSITIVE_INFINITY,
+        val left = floor(minOf(obstacles.minOf { it.x }, routePoints.minOfOrNull { it.x } ?: Double.POSITIVE_INFINITY,
             groups.minOfOrNull { it.x } ?: Double.POSITIVE_INFINITY) - margin)
-        val top = floor(minOf(positionedNodes.minOf { it.y }, routePoints.minOfOrNull { it.y } ?: Double.POSITIVE_INFINITY,
+        val top = floor(minOf(obstacles.minOf { it.y }, routePoints.minOfOrNull { it.y } ?: Double.POSITIVE_INFINITY,
             groups.minOfOrNull { it.y } ?: Double.POSITIVE_INFINITY) - margin)
-        val right = maxOf(positionedNodes.maxOf { it.x + it.width }, routePoints.maxOfOrNull { it.x } ?: Double.NEGATIVE_INFINITY,
+        val right = maxOf(obstacles.maxOf { it.x + it.width }, routePoints.maxOfOrNull { it.x } ?: Double.NEGATIVE_INFINITY,
             groups.maxOfOrNull { it.x + it.width } ?: Double.NEGATIVE_INFINITY) + margin
-        val bottom = maxOf(positionedNodes.maxOf { it.y + it.height }, routePoints.maxOfOrNull { it.y } ?: Double.NEGATIVE_INFINITY,
+        val bottom = maxOf(obstacles.maxOf { it.y + it.height }, routePoints.maxOfOrNull { it.y } ?: Double.NEGATIVE_INFINITY,
             groups.maxOfOrNull { it.y + it.height } ?: Double.NEGATIVE_INFINITY) + margin
-        return DiagramLayout(positionedNodes, edges, maxOf(640.0, ceil(right - left)), maxOf(360.0, ceil(bottom - top)), groups, left, top)
+        return DiagramLayout(positionedNodes, edges, maxOf(640.0, ceil(right - left)), maxOf(360.0, ceil(bottom - top)), groups, left, top, notes)
     }
 
     /** Pack independent group blocks; manual positions still take precedence over auto-layout. */

@@ -13,4 +13,9 @@
         <fileEditorProvider implementation="io.github.dbmldiagram.plugin.editor.DbmlFileEditorProvider"/>
         <toolWindow id="dbdiagram.io" anchor="right" factoryClass="io.github.dbmldiagram.plugin.cloud.DbdiagramToolWindowFactory"/>
     </extensions>
+    <actions>
+        <action id="DBML.ImportSql" class="io.github.dbmldiagram.plugin.importer.SqlImportAction" text="Import SQL to DBML…" description="Convert local SQL DDL into a new DBML file">
+            <add-to-group group-id="ToolsMenu" anchor="last"/>
+        </action>
+    </actions>
 </idea-plugin>

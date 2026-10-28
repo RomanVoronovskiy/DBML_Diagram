@@ -77,6 +77,13 @@ intellijPlatform {
 tasks {
     patchPluginXml {
         changeNotes = """
+            <h3>2.2.0 — SQL import and canvas notes</h3>
+            <ul>
+              <li>Import PostgreSQL, MySQL, and Oracle DDL through the official locally installed @dbml/cli converter, from Tools or the preview toolbar.</li>
+              <li>Display sticky Notes and project descriptions as movable canvas cards, with saved positions and SVG/PNG export.</li>
+              <li>Remove out-and-back relationship tails; keep route handles on the visible line after movement or reattachment.</li>
+              <li>Accept optional-side markers from current converters and normalize unique imported foreign keys to 1:1.</li>
+            </ul>
             <h3>2.1.0 — Free SVG canvas</h3>
             <ul>
               <li>Move tables and relationship controls freely in all directions, including negative world coordinates.</li>

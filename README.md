@@ -4,7 +4,7 @@
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 [![IntelliJ Platform](https://img.shields.io/badge/IntelliJ%20Platform-2024.1--2026.2-purple.svg)](https://plugins.jetbrains.com/)
 
-DBML Diagram is an open-source IntelliJ Platform plugin that shows a realtime SVG entity-relationship diagram next to a `.dbml` file. Version **2.1.0** adds a **free SVG canvas** with world-grid navigation, unrestricted left/up movement, and whole-group dragging. It supports Platform builds **241–262** (2024.1–2026.2) and retains colored TableGroup frames, CHECK constraints, composite foreign keys, and optional dbdiagram.io synchronization. Local editing, preview, validation, and exports remain offline. It supports IntelliJ IDEA and DataGrip-compatible Platform IDEs.
+DBML Diagram is an open-source IntelliJ Platform plugin that shows a realtime SVG entity-relationship diagram next to a `.dbml` file. Version **2.2.0** adds **SQL → DBML import**, movable canvas Notes, and cleaner relationship routing. It supports Platform builds **241–262** (2024.1–2026.2) and retains the free SVG canvas, colored TableGroup frames, CHECK constraints, composite foreign keys, and optional dbdiagram.io synchronization. Local editing, preview, validation, and exports remain offline. It supports IntelliJ IDEA and DataGrip-compatible Platform IDEs.
 
 ## Features
 
@@ -26,10 +26,57 @@ DBML Diagram is an open-source IntelliJ Platform plugin that shows a realtime SV
 - Composite foreign-key tuples with whole-key validation, pairwise type checks, complete DDL column lists, and FK markers on every member. One relationship is drawn per constraint, anchored at the first declared column; the tooltip lists the full ordered tuple.
 - Light and Darcula-aware diagram colors.
 - DBML file type, icon, comments, and basic syntax highlighting.
-- Triple-single-quoted multiline notes, including group notes in SVG tooltips. Standalone sticky `Note` and unknown declaration blocks are safely ignored with warnings in the local preview. The original file text is not changed.
+- Triple-single-quoted multiline notes, including group notes in SVG tooltips. Standalone sticky `Note` blocks and project descriptions render as movable cards, included in SVG/PNG. Unknown declarations are skipped with warnings. The original text is not changed.
+- Local PostgreSQL, MySQL, and Oracle SQL → DBML import through the separately installed official `@dbml/cli`.
 - Optional dbdiagram.io browser login through the official CLI, or a workspace API token stored in IDE PasswordSafe.
 - Search and select remote diagrams in **My Diagrams**, download DBML, link an existing file, and explicitly Pull or Push.
 - Local editing, preview, validation, and SVG/PNG/DDL exports do not require an account, network access, Node.js, or CLI tools.
+
+## SQL import and movable Notes (2.2.0)
+
+### SQL → DBML
+
+1. Install **Node.js 24 LTS** (the converter requires 18+) and run `npm install -g @dbml/cli`. This is separate from the optional cloud `dbdiagram` CLI.
+2. Open **Tools → Import SQL to DBML…**, or **Import SQL** in a DBML preview, and select a `.sql` DDL file.
+3. Choose **PostgreSQL**, **MySQL**, or **Oracle**. Node.js and `node_modules/@dbml/cli/bin/sql2dbml.js` are detected when possible; otherwise enter absolute paths. Use the JavaScript entry, not a `.cmd`/`.ps1` wrapper. Find its package directory with `npm root -g`.
+4. Click **Convert**, then choose a separate `.dbml` output file. The IDE opens it with the usual preview. Unsaved SQL editor changes are included as input without modifying the source. Review any local-preview diagnostics before saving a partially supported conversion.
+
+On Windows, install Node.js if necessary with `winget install --id OpenJS.NodeJS.LTS -e`, then reopen the terminal/IDE so PATH updates are visible. Verify `node --version` and `npm --version` before installing the converter.
+
+Equivalent terminal commands (the plugin runs the converter locally in a temporary directory):
+
+```shell
+npm install -g @dbml/cli
+sql2dbml schema.sql --postgres -o schema.dbml
+# Other dialog choices: --mysql, --oracle
+```
+
+Try [the synthetic PostgreSQL example](examples/sql-import.sql): five tables, identity columns, an enum, defaults, a composite PK, a unique index, FK actions, and comments. The importer retains the converter's DBML and normalizes a unique FK to **1:1**, preserving constraint ownership; part of a composite PK is not unique by itself. Optional-side markers such as `<?` are accepted; the diagram still uses 1/N labels, with physical nullability from column settings.
+
+Conversion uses the [official DBML CLI](https://dbml.dbdiagram.io/cli/) on your computer; it requires no account/database connection and does not execute SQL. Converter **10.2.0** was tested for this release. Conversion fidelity depends on the tool and SQL dialect: this is schema conversion, not a lossless SQL backup or migration executor. In the tested Oracle `ALTER TABLE ... FOREIGN KEY ... ON DELETE CASCADE` case, upstream 10.2.0 omits the delete action; restore it in DBML before exporting a migration. PostgreSQL/MySQL referential actions in the tested examples are preserved. Review generated DBML/DDL before a database migration. Import is cancellable, bounded to 8 MiB input/output and 120 seconds; conversion failures leave destination files untouched.
+
+### Notes on the board
+
+```dbml
+Project learning {
+  Note: 'Training platform: review retention rules before migration.'
+}
+Note reminder [color: #cef] {
+  '''Review foreign keys
+  Check indexes
+  Export SQL'''
+}
+```
+
+Standalone `Note name { 'text' }` and the project's `Note:` description appear in a column at the upper left of the tables. Drag a note by its card, text, or title to any world position; **Space + drag** still pans. Notes use the optional 24-unit Snap grid and have independent positions saved per file. Refresh/text edits retain those positions; Reset layout restores automatic placement. Positions do not rewrite DBML or synchronize to dbdiagram.io.
+
+Notes support multiline text, `#rgb`/`#rrggbb` colors, and `color: none`. Cards wrap at approximately 38 characters and show up to 40 lines, with full text in the tooltip/editor. Fit and SVG/PNG export include notes; lines route around them. Table/column/group notes remain metadata rather than separate board cards.
+
+Routing now removes redundant collinear out-and-back tails after moving tables, controls, or attachment sides. Handles on removed spurs are projected onto the remaining visible route. Selected attachment sides are preserved. Overlapping objects can still block routing.
+
+Try [the public notes example](examples/canvas-notes.dbml). This screenshot comes from the real interactive preview:
+
+![Movable Notes and project description on the free canvas](docs/images/canvas-notes-dark.png)
 
 ## Free canvas navigation (2.1.0)
 
@@ -79,7 +126,7 @@ TableGroup Sales [color: #a78bfa] {
 - Drag **table headers** to move individual tables: the frame expands/shrinks immediately. In 2.1.0, drag the **group title band** to move all its members together. Frames do not constrain table movement, and moving tables into another frame does **not** change DBML membership. Edit the `TableGroup` body to change membership.
 - SVG and PNG export include names, colors, frame bounds, and saved table positions. PNG size/memory safety limits still apply. A group's frame is visual background, not an obstacle for relationship lines.
 - Unknown or duplicate members produce source-located warnings; empty/unresolved groups draw no frame. Multiple membership is warned about: the first group controls automatic placement and frames can overlap. Manual overlap is also retained, not silently rearranged.
-- Groups do not change SQL output, create database schemas, or upload local layout settings to dbdiagram.io. Standalone sticky notes are not yet rendered.
+- Groups do not change SQL output, create database schemas, or upload local layout settings to dbdiagram.io. Standalone sticky notes are rendered starting in 2.2.0.
 
 Try [the public synthetic storefront example](examples/table-groups.dbml) (six tables, three domains, valid FK-to-PK arrows, and CHECK expressions). These screenshots are generated from the actual interactive preview, not an illustrative mockup:
 
@@ -93,7 +140,7 @@ The local parser accepts both `checks { ... }` and column settings such as ``[ch
 
 Composite references use the [DBML syntax](https://dbml.dbdiagram.io/docs/) `Ref: tasks.(department_id, tenant_id) > departments.(id, tenant_id)`. Column counts and positional types must match, the target tuple must form a complete PK/UNIQUE key, and FK uniqueness is checked across the entire tuple, including unique subsets. See [the public synthetic example](examples/checks-composite.dbml).
 
-These are schema-processing improvements, not automatic database/schema tuning: the plugin does not rewrite your DBML, evaluate CHECK expressions, or execute SQL. In 2.0.0, `TableGroup` is visualized as described above; standalone sticky notes remain unsupported.
+These are schema-processing improvements, not automatic database/schema tuning: the plugin does not rewrite your DBML, evaluate CHECK expressions, or execute SQL. TableGroup is visualized starting in 2.0.0, and standalone sticky notes in 2.2.0.
 
 ## dbdiagram.io integration (1.0.0)
 

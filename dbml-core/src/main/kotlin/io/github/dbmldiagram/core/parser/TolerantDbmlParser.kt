@@ -96,6 +96,7 @@ private class Parser(private val tokens: List<Token>, initialErrors: List<DbmlPa
     private val enums = mutableListOf<DbmlEnum>()
     private val references = mutableListOf<DbmlReference>()
     private val tableGroups = mutableListOf<DbmlTableGroup>()
+    private val notes = mutableListOf<DbmlNote>()
     private var project: DbmlProject? = null
 
     fun parse(): ParseResult {
@@ -109,7 +110,7 @@ private class Parser(private val tokens: List<Token>, initialErrors: List<DbmlPa
                 matchWord("Enum") -> parseEnum()
                 matchWord("Ref") -> parseReference()
                 matchWord("TableGroup") -> parseTableGroup()
-                checkWord("Note") -> skipUnsupportedDeclaration(requireBlock = true)
+                matchWord("Note") -> parseStickyNote()
                 checkSymbol("}") -> { error("Unexpected closing '}'", peek()); advance() }
                 else -> skipUnsupportedDeclaration()
             }
@@ -120,9 +121,30 @@ private class Parser(private val tokens: List<Token>, initialErrors: List<DbmlPa
                 advance()
             }
         }
-        val schema = DbmlSchema(project, tables.toList(), enums.toList(), references.toList(), tableGroups.toList())
+        val schema = DbmlSchema(project, tables.toList(), enums.toList(), references.toList(), tableGroups.toList(), notes.toList())
         validate(schema)
         return ParseResult(schema, errors.toList())
+    }
+
+    private fun parseStickyNote() {
+        val start = peek()
+        val name = identifierOrNull() ?: run { error("Expected Note name", peek()); skipLine(); return }
+        skipNewlines()
+        val settings = if (consumeSymbol("[")) collectUntilClosingBracket() else emptyList()
+        val color = settingSegments(settings).firstOrNull { it.firstOrNull()?.text.equals("color", true) }
+            ?.drop(2)?.joinToString("") { it.text }
+        val safeColor = color?.takeIf { it == "none" || Regex("#[0-9a-fA-F]{3}(?:[0-9a-fA-F]{3})?").matches(it) }
+        if (color != null && safeColor == null) warning("Invalid Note color; using default yellow", start)
+        skipNewlines()
+        if (!consumeSymbol("{")) { error("Expected '{' after Note name", peek()); skipLine(); return }
+        skipNewlines()
+        val text = if (peek().kind == Kind.STRING) advance().text else {
+            error("Expected quoted Note text", peek()); ""
+        }
+        skipNewlines()
+        closeBlock("Note")
+        if (notes.any { it.name.equals(name, true) }) error("Duplicate Note '$name'", start)
+        else notes += DbmlNote(name, text, safeColor)
     }
 
     private fun parseTableGroup() {
@@ -364,8 +386,10 @@ private class Parser(private val tokens: List<Token>, initialErrors: List<DbmlPa
         }
         val opIndex = endpoints.indexOfFirst { it.kind == Kind.SYMBOL && it.text in setOf(">", "<", "-", "<>") }
         if (opIndex < 0) { endpoints.firstOrNull()?.let { error("Reference operator is missing", it) }; return null }
-        val left = parseColumnRef(endpoints.take(opIndex))
-        val right = parseColumnRef(endpoints.drop(opIndex + 1))
+        // New official converters include optional-side markers next to the operator (e.g. <?).
+        // Physical nullability is retained on the FK column; markers do not alter key validation.
+        val left = parseColumnRef(endpoints.take(opIndex).dropLastWhile { it.isSymbol("?") })
+        val right = parseColumnRef(endpoints.drop(opIndex + 1).dropWhile { it.isSymbol("?") })
         if (left == null || right == null) { error("Invalid reference endpoint", endpoints.first()); return null }
         val cardinality = when (endpoints[opIndex].text) {
             ">" -> DbmlCardinality.MANY_TO_ONE
@@ -390,7 +414,7 @@ private class Parser(private val tokens: List<Token>, initialErrors: List<DbmlPa
         val tail = settings.drop(refIndex + 1).dropWhile { it.isSymbol(":") }
         val opIndex = tail.indexOfFirst { it.kind == Kind.SYMBOL && it.text in setOf(">", "<", "-", "<>") }
         if (opIndex < 0) { error("Reference operator is missing", settings[refIndex]); return null }
-        val target = parseColumnRef(tail.drop(opIndex + 1))
+        val target = parseColumnRef(tail.drop(opIndex + 1).dropWhile { it.isSymbol("?") })
             ?: run { error("Invalid reference endpoint", settings[refIndex]); return null }
         val source = DbmlColumnRef(table.first, table.second, column)
         val cardinality = when (tail[opIndex].text) {

@@ -6,7 +6,10 @@ data class DbmlSchema(
     val enums: List<DbmlEnum> = emptyList(),
     val references: List<DbmlReference> = emptyList(),
     val tableGroups: List<DbmlTableGroup> = emptyList(),
+    val notes: List<DbmlNote> = emptyList(),
 )
+
+data class DbmlNote(val name: String, val text: String, val color: String? = null)
 
 data class DbmlTableGroup(
     val name: String,
