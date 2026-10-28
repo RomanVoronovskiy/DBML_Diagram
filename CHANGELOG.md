@@ -4,6 +4,17 @@ All notable changes to DBML Diagram are documented in this file. The project fol
 
 ## [Unreleased]
 
+## [2.2.0] - 2026-10-28
+
+### SQL import and canvas Notes
+
+- Add **Tools → Import SQL to DBML…** and an **Import SQL** preview button. Run the separately installed official `@dbml/cli` locally with detected/configurable executable paths and PostgreSQL, MySQL, or Oracle dialects. Include unsaved SQL input; allow cancellation and bound input/output/process time. Save/open converted DBML after successful conversion and destination selection.
+- Normalize unique imported FKs to 1:1 while preserving ownership, composite keys, reference names/actions. Accept current converter optional-side markers without changing key validation. Include a synthetic SQL example and official CLI regression coverage.
+- Parse standalone sticky Notes and render them and project descriptions as cards initially at the upper left of tables. Support safe colors, wrapped multiline text, note-only schemas, and escaped content. Keep full text in tooltips when visible text is bounded.
+- Move notes independently with world coordinates/snapping and separate per-file persistence. Include them in Reset layout, Fit, SVG/PNG bounds, and routing obstacles.
+- Remove out-and-back relationship tails in live routing and export after moving tables or reattaching endpoints. Project handles from removed spurs onto visible routes while retaining selected sides.
+- Add bounded-parser, geometry, note persistence/PNG, real-pointer/theme, converter, and routing regression coverage.
+
 ## [2.1.0] - 2026-10-23
 
 ### Free SVG canvas

@@ -60,6 +60,7 @@ class PackagedPluginPngTest {
                     Ref: orders.(user_id, tenant_id) > users.(id, tenant_id)
                     TableGroup Accounts [color: #3b82f6] { users }
                     TableGroup Sales [color: #10b981] { orders }
+                    Note reminder { 'Verify migration before deployment' }
                 """.trimIndent()
                 // Exercise the core model/parser/renderer from the actual ZIP as well as its PNG writer.
                 val parserClass = loader.loadClass("io.github.dbmldiagram.core.parser.TolerantDbmlParser")
@@ -70,13 +71,14 @@ class PackagedPluginPngTest {
                 val layoutClass = loader.loadClass("io.github.dbmldiagram.core.layout.LayeredDiagramLayoutEngine")
                 val pointConstructor = loader.loadClass("io.github.dbmldiagram.core.layout.DiagramPoint").getConstructor(Double::class.javaPrimitiveType, Double::class.javaPrimitiveType)
                 val positions = mapOf("users" to pointConstructor.newInstance(-900.0, -650.0), "orders" to pointConstructor.newInstance(-300.0, -350.0))
-                val engine = layoutClass.getConstructor(Map::class.java, Map::class.java).newInstance(positions, emptyMap<String, Any>())
+                val engine = layoutClass.getConstructor(Map::class.java, Map::class.java, Map::class.java).newInstance(positions, emptyMap<String, Any>(), emptyMap<String, Any>())
                 val layout = layoutClass.getMethod("layout", schema.javaClass).invoke(engine, schema)
                 val rendererClass = loader.loadClass("io.github.dbmldiagram.core.renderer.SvgDiagramRenderer")
                 val svg = rendererClass.getMethod("render", schema.javaClass, layout.javaClass).invoke(rendererClass.getConstructor().newInstance(), schema, layout) as String
                 assertTrue(svg.contains("CHECK (2)"))
                 assertTrue(svg.contains("FK orders.(user_id, tenant_id)"))
                 assertTrue(svg.contains("data-table-group=\"Accounts\""))
+                assertTrue(svg.contains("data-note=\"note:reminder\""))
                 assertTrue(svg.contains("stroke=\"#10b981\""))
                 assertTrue("Export must contain a negative-origin viewBox", svg.contains("viewBox=\"-"))
                 val writer = loader.loadClass("io.github.dbmldiagram.plugin.preview.PngDiagramWriter")

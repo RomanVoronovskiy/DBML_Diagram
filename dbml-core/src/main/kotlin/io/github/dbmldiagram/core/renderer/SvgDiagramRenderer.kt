@@ -141,7 +141,25 @@ class SvgDiagramRenderer : DiagramRenderer {
         }
         append(controls)
 
-        if (schema.tables.isEmpty()) append("<text class=\"title\" x=\"40\" y=\"60\">No tables to display</text>")
+        append("""<defs><style>.sticky-note{cursor:move}.note-body{stroke:#b89b32;stroke-width:1}.note-title{font:600 13px sans-serif;fill:#302a16}.note-text{font:12px sans-serif;fill:#302a16}</style></defs>""")
+        layout.notes.forEach { note ->
+            val color = note.color.takeIf { it == "none" || Regex("#[0-9a-fA-F]{3}(?:[0-9a-fA-F]{3})?").matches(it) } ?: "#f4d03f"
+            append("<g class=\"sticky-note\" data-note=\"${escape(note.id)}\" data-x=\"${note.x}\" data-y=\"${note.y}\" data-width=\"${note.width}\" data-height=\"${note.height}\">")
+            append("<title>${escape(note.text)}</title><rect class=\"note-body\" x=\"${note.x}\" y=\"${note.y}\" width=\"${note.width}\" height=\"${note.height}\" rx=\"6\" fill=\"$color\" pointer-events=\"all\"/>")
+            val textColor = if (color == "none") "var(--dbml-text,#24292f)" else {
+                val hex = color.drop(1).let { if (it.length == 3) it.flatMap { c -> listOf(c,c) }.joinToString("") else it }
+                val brightness = hex.take(2).toInt(16) * .299 + hex.substring(2,4).toInt(16) * .587 + hex.takeLast(2).toInt(16) * .114
+                if (brightness < 140) "#fff" else "#302a16"
+            }
+            val title = if (note.title.length <= 36) note.title else note.title.take(35).dropLastWhile { it.isHighSurrogate() } + "…"
+            append("<text class=\"note-title\" style=\"fill:$textColor\" x=\"${note.x + 14}\" y=\"${note.y + 24}\">${escape(title)}</text>")
+            note.lines.forEachIndexed { index, line ->
+                append("<text class=\"note-text\" style=\"fill:$textColor\" x=\"${note.x + 14}\" y=\"${note.y + 48 + index * 18}\">${escape(line)}</text>")
+            }
+            append("</g>")
+        }
+
+        if (schema.tables.isEmpty() && layout.notes.isEmpty()) append("<text class=\"title\" x=\"40\" y=\"60\">No tables to display</text>")
         append("</svg>")
     }
 

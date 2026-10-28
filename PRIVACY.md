@@ -1,12 +1,18 @@
 # DBML Diagram privacy and data handling
 
-Updated: 2026-10-07 — version 1.0.0.
+Updated: 2026-10-28 — version 2.2.0.
 
 ## Local features
 
 Local DBML editing, parsing, validation, diagram preview, and SVG/PNG/DDL exports run on your computer. They do not send schemas to the plugin author or require dbdiagram.io. The plugin adds no analytics or telemetry of its own.
 
 Table positions, relationship routes, and cloud file bindings are saved in IDE workspace storage. Cloud bindings contain the local file URL, remote diagram ID/name, an opaque connection identifier, and a SHA-256 hash of the last synchronized remote DBML. They do not contain the DBML source or API credentials. Connection settings store only the chosen backend, CLI executable paths, optional workspace ID, and an opaque connection identifier.
+
+## Local SQL import
+
+SQL → DBML import invokes the separately installed official `@dbml/cli` with Node.js. The plugin writes the selected SQL editor text to a private temporary directory and reads the generated DBML there; both files are removed on completion/failure/cancellation. Abnormal process/system termination can leave temporary files. The plugin does not execute SQL against a database or intentionally send schema text to a server. Third-party converter behavior is governed by its installed version and provider; no plugin telemetry is added. Conversion errors can display a short converter diagnostic in the local IDE. The destination is chosen after conversion.
+
+Sticky-note positions, camera/grid preferences, table positions, and routes are kept in IDE workspace storage. Import settings store only executable paths and the last selected dialect in IDE application settings. Neither is committed to the project by the plugin.
 
 ## Optional dbdiagram.io synchronization
 

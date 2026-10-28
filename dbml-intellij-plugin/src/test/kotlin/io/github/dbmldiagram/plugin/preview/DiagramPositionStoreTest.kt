@@ -11,6 +11,23 @@ import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
 
 class DiagramPositionStoreTest : BasePlatformTestCase() {
+    fun testNoteDragSurvivesReloadWithoutChangingDbml() {
+        val source = "Note reminder { 'Review schema' }\nTable reminder { id int }"
+        val file = myFixture.configureByText("notes.dbml", source).virtualFile
+        val store = DiagramPositionStore(project, file)
+        try {
+            val update = PreviewChangeDecoder.decode("N\tnote%3Areminder\t-800\t-400\t0.8\t300\t200\t1\t0")!!
+            assertTrue(update.positions.isEmpty())
+            store.saveNotes(update.notes)
+            val schema = TolerantDbmlParser().parse(source).schema!!
+            val layout = LayeredDiagramLayoutEngine(manualNotes = DiagramPositionStore(project, file).loadNotes()).layout(schema)
+            assertEquals(-800.0, layout.notes.single().x)
+            assertEquals(-400.0, layout.notes.single().y)
+            assertTrue(layout.nodes.single().x >= 0)
+            assertEquals(source, myFixture.editor.document.text)
+            assertNull(PreviewChangeDecoder.decode("N\tnote\tNaN\t1\t1\t0\t0\t1\t0"))
+        } finally { store.clearNotes() }
+    }
     fun testGroupBatchPersistsAndRestoresForExportWithoutEditingDbml() {
         val source = "Table users { id uuid [pk] }\nTable orders { user_id uuid [ref: > users.id] }\nTableGroup Accounts { users orders }"
         val file = myFixture.configureByText("group-batch.dbml", source).virtualFile

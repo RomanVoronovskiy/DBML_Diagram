@@ -77,8 +77,11 @@ class LayeredDiagramLayoutEngineTest {
         assertEquals(TableSide.BOTTOM, edge.toSide)
         assertEquals(DiagramPoint(orders.x + orders.width / 2, orders.y), edge.points.first())
         assertEquals(DiagramPoint(users.x + users.width / 2, users.y + users.height), edge.points.last())
-        assertEquals(control, edge.control)
-        assertEquals(true, control in edge.points)
+        // An out-and-back spur toward the old control is removed; its handle stays on the visible route.
+        assertEquals(control.y, edge.control.y)
+        assertEquals(true, edge.points.zipWithNext().any { (a, b) ->
+            edge.control.x in minOf(a.x,b.x)..maxOf(a.x,b.x) && edge.control.y in minOf(a.y,b.y)..maxOf(a.y,b.y)
+        })
     }
 
     @Test fun `anchors later columns with aliases and reversed references after moving tables`() {

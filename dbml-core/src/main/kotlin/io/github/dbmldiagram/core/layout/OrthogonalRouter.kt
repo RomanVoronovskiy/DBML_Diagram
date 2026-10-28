@@ -27,8 +27,14 @@ object OrthogonalRouter {
             if (first != null && second != null) simplify(first + second.drop(1))
             else { usesWaypoint = false; search(a, b, boxes) ?: preferred } // Overlapping cards may make an endpoint inaccessible.
         }
-        val actualControl = if (usesWaypoint) waypoint else middle[middle.size / 2]
-        return Route(simplify(listOf(start) + middle + end), actualControl)
+        val points = simplify(listOf(start) + middle + end)
+        val requestedControl = if (usesWaypoint) waypoint else middle[middle.size / 2]
+        // A collapsed out-and-back spur can remove the old control. Keep the handle on the visible path.
+        val actualControl = points.zipWithNext().map { (a, b) ->
+            DiagramPoint(requestedControl.x.coerceIn(minOf(a.x, b.x), maxOf(a.x, b.x)),
+                requestedControl.y.coerceIn(minOf(a.y, b.y), maxOf(a.y, b.y)))
+        }.minByOrNull { abs(it.x - requestedControl.x) + abs(it.y - requestedControl.y) } ?: start
+        return Route(points, actualControl)
     }
 
     private fun inside(p: DiagramPoint, r: Box) = p.x > r.left + EPS && p.x < r.right - EPS && p.y > r.top + EPS && p.y < r.bottom - EPS
@@ -138,12 +144,12 @@ object OrthogonalRouter {
             if (lastOrNull() == p) continue
             while (size >= 2) {
                 val a = get(size - 2); val b = last()
-                val straight = (abs(a.x - b.x) < EPS && abs(b.x - p.x) < EPS && (b.y - a.y) * (p.y - b.y) >= 0) ||
-                    (abs(a.y - b.y) < EPS && abs(b.y - p.y) < EPS && (b.x - a.x) * (p.x - b.x) >= 0)
+                val straight = (abs(a.x - b.x) < EPS && abs(b.x - p.x) < EPS) ||
+                    (abs(a.y - b.y) < EPS && abs(b.y - p.y) < EPS)
                 if (!straight) break
                 removeAt(lastIndex)
             }
-            add(p)
+            if (lastOrNull() != p) add(p)
         }
     }
 }

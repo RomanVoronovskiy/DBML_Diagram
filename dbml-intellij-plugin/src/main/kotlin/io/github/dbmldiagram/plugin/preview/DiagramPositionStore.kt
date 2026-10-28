@@ -16,6 +16,14 @@ internal class DiagramPositionStore(project: Project, file: VirtualFile) {
     private val key = "io.github.dbmldiagram.layout.${sha256(file.url).take(24)}"
     private val routeKey = "$key.routes"
     private val viewKey = "$key.view"
+    private val noteKey = "$key.notes"
+
+    fun loadNotes(): Map<String, DiagramPoint> = properties.getValue(noteKey)?.lineSequence()?.mapNotNull(::decode)?.toMap().orEmpty()
+    fun saveNotes(positions: Map<String, DiagramPoint>) {
+        properties.setValue(noteKey, positions.filterValues { it.x.isFinite() && it.y.isFinite() }.entries.sortedBy { it.key }
+            .joinToString("\n") { (id, point) -> "${encodeName(id)}\t${point.x}\t${point.y}" }.ifBlank { null })
+    }
+    fun clearNotes() = properties.unsetValue(noteKey)
 
     fun loadView(): PreviewViewState? = properties.getValue(viewKey)?.let { PreviewChangeDecoder.decode(it)?.view }
 

@@ -34,7 +34,7 @@ html,body{margin:0;width:100%;height:100%;overflow:hidden;$colors;background:var
 #diagram .route-snap{pointer-events:all;cursor:pointer;opacity:.9}
 #diagram .route-endpoint,#diagram .route-control,#diagram .route-axis,#diagram .relation-hit{touch-action:none}
 </style></head><body>$notice<div id="viewport"><div id="diagram">$diagram</div></div><div id="canvas-tools"><button id="grid-toggle" type="button" onclick="toggleGrid()" title="Show or hide the world grid">Grid</button><button id="snap-toggle" type="button" onclick="toggleSnap()" title="Snap moved tables and groups to a 24-unit grid">Snap</button><span>Space + drag / middle mouse: pan</span></div><script>
-let scale=$initialScale,tx=$initialX,ty=$initialY,tableDrag=null,panDrag=null,groupDrag=null,spaceDown=false;
+let scale=$initialScale,tx=$initialX,ty=$initialY,tableDrag=null,noteDrag=null,panDrag=null,groupDrag=null,spaceDown=false;
 let gridEnabled=${viewState?.grid ?: true},snapEnabled=${viewState?.snap ?: false},viewTimer=0;
 const d=document.getElementById('diagram'),v=document.getElementById('viewport');
 const svgRoot=d.querySelector('svg');
@@ -56,7 +56,7 @@ function toggleSnap(){snapEnabled=!snapEnabled;apply();saveView()}
 function contentBounds(){
  let left=Infinity,top=Infinity,right=-Infinity,bottom=-Infinity;
  function include(x,y){left=Math.min(left,x);top=Math.min(top,y);right=Math.max(right,x);bottom=Math.max(bottom,y)}
- document.querySelectorAll('g[data-table]').forEach(g=>{const x=+g.dataset.x,y=+g.dataset.y;include(x,y);include(x+(+g.dataset.width),y+(+g.dataset.height))});
+ document.querySelectorAll('g[data-table],g[data-note]').forEach(g=>{const x=+g.dataset.x,y=+g.dataset.y;include(x,y);include(x+(+g.dataset.width),y+(+g.dataset.height))});
  document.querySelectorAll('.table-group-frame').forEach(r=>{const x=+r.getAttribute('x'),y=+r.getAttribute('y');include(x,y);include(x+(+r.getAttribute('width')),y+(+r.getAttribute('height')))});
  document.querySelectorAll('.relation').forEach(r=>Array.from(r.points).forEach(p=>include(p.x,p.y)));
  return left===Infinity?{x:0,y:0,w:640,h:360}:{x:left-48,y:top-48,w:right-left+96,h:bottom-top+96};
@@ -89,12 +89,12 @@ function endpointPoint(rel,end,side){return sidePoint(tableBox(end==='from'?rel.
 function exitPoint(p,s){if(s==='top')return{x:p.x,y:p.y-24};if(s==='right')return{x:p.x+24,y:p.y};if(s==='bottom')return{x:p.x,y:p.y+24};return{x:p.x-24,y:p.y}}
 function controlsFor(id){return Array.from(document.querySelectorAll('.route-controls')).find(g=>g.dataset.controlsFor===id)}
 function routeLeg(p,s,c){if(s==='right'){const x=Math.max(p.x,c.x);return[p,{x:x,y:p.y},{x:x,y:c.y},c]}if(s==='left'){const x=Math.min(p.x,c.x);return[p,{x:x,y:p.y},{x:x,y:c.y},c]}if(s==='bottom'){const y=Math.max(p.y,c.y);return[p,{x:p.x,y:y},{x:c.x,y:y},c]}const y=Math.min(p.y,c.y);return[p,{x:p.x,y:y},{x:c.x,y:y},c]}
-function routingCards(){if(routingSnapshot)return routingSnapshot.cards;return Array.from(document.querySelectorAll('g[data-table]')).map(g=>({x:+g.dataset.x,y:+g.dataset.y,w:+g.dataset.width,h:+g.dataset.height}))}
+function routingCards(){if(routingSnapshot)return routingSnapshot.cards;return Array.from(document.querySelectorAll('g[data-table],g[data-note]')).map(g=>({x:+g.dataset.x,y:+g.dataset.y,w:+g.dataset.width,h:+g.dataset.height}))}
 function routeBoxes(){if(routingSnapshot&&routingSnapshot.boxes)return routingSnapshot.boxes;const cards=routingCards();let padding=12;for(let i=0;i<cards.length;i++)for(let j=i+1;j<cards.length;j++){const a=cards[i],b=cards[j],gap=Math.max(Math.max(a.x-b.x-b.w,b.x-a.x-a.w),Math.max(a.y-b.y-b.h,b.y-a.y-a.h));if(gap>.01)padding=Math.min(padding,Math.max(.1,gap/3))}return cards.map(g=>({left:g.x-padding,top:g.y-padding,right:g.x+g.w+padding,bottom:g.y+g.h+padding,padding:padding}))}
 function routeExit(p,side){let distance=24;for(const n of routingCards()){let gap=null;if(side==='right'&&p.y>=n.y&&p.y<=n.y+n.h&&n.x>p.x+.01)gap=n.x-p.x;else if(side==='left'&&p.y>=n.y&&p.y<=n.y+n.h&&n.x+n.w<p.x-.01)gap=p.x-n.x-n.w;else if(side==='bottom'&&p.x>=n.x&&p.x<=n.x+n.w&&n.y>p.y+.01)gap=n.y-p.y;else if(side==='top'&&p.x>=n.x&&p.x<=n.x+n.w&&n.y+n.h<p.y-.01)gap=p.y-n.y-n.h;if(gap!==null)distance=Math.min(distance,gap/2)}if(side==='top')return{x:p.x,y:p.y-distance};if(side==='right')return{x:p.x+distance,y:p.y};if(side==='bottom')return{x:p.x,y:p.y+distance};return{x:p.x-distance,y:p.y}}
 function insideBox(p,r){return p.x>r.left+.01&&p.x<r.right-.01&&p.y>r.top+.01&&p.y<r.bottom-.01}
 function clearSegment(a,b,boxes){return!boxes.some(r=>Math.abs(a.y-b.y)<.01?a.y>r.top+.01&&a.y<r.bottom-.01&&Math.max(a.x,b.x)>r.left+.01&&Math.min(a.x,b.x)<r.right-.01:Math.abs(a.x-b.x)<.01?a.x>r.left+.01&&a.x<r.right-.01&&Math.max(a.y,b.y)>r.top+.01&&Math.min(a.y,b.y)<r.bottom-.01:true)}
-function simplifyRoute(points){const result=[];for(const p of points){let b=result[result.length-1];if(b&&b.x===p.x&&b.y===p.y)continue;while(result.length>=2){const a=result[result.length-2];b=result[result.length-1];const straight=(Math.abs(a.x-b.x)<.01&&Math.abs(b.x-p.x)<.01&&(b.y-a.y)*(p.y-b.y)>=0)||(Math.abs(a.y-b.y)<.01&&Math.abs(b.y-p.y)<.01&&(b.x-a.x)*(p.x-b.x)>=0);if(!straight)break;result.pop()}result.push(p)}return result}
+function simplifyRoute(points){const result=[];for(const p of points){let b=result[result.length-1];if(b&&b.x===p.x&&b.y===p.y)continue;while(result.length>=2){const a=result[result.length-2];b=result[result.length-1];const straight=(Math.abs(a.x-b.x)<.01&&Math.abs(b.x-p.x)<.01)||(Math.abs(a.y-b.y)<.01&&Math.abs(b.y-p.y)<.01);if(!straight)break;result.pop()}b=result[result.length-1];if(!b||b.x!==p.x||b.y!==p.y)result.push(p)}return result}
 function freeControl(p,boxes){if(!boxes.some(r=>insideBox(p,r)))return p;const candidates=boxes.flatMap(r=>[{x:r.left,y:p.y},{x:r.right,y:p.y},{x:p.x,y:r.top},{x:p.x,y:r.bottom}]).filter(q=>!boxes.some(r=>insideBox(q,r)));return candidates.reduce((best,q)=>!best||Math.abs(q.x-p.x)+Math.abs(q.y-p.y)<Math.abs(best.x-p.x)+Math.abs(best.y-p.y)?q:best,null)||p}
 function gridRoute(start,end,boxes){
  if(start.x===end.x&&start.y===end.y)return[start];
@@ -115,8 +115,10 @@ function relationPoints(rel){
  const a=endpointPoint(rel,'from',rel.dataset.fromSide),b=endpointPoint(rel,'to',rel.dataset.toSide),ae=routeExit(a,rel.dataset.fromSide),be=routeExit(b,rel.dataset.toSide),boxes=routeBoxes(),c=freeControl({x:+rel.dataset.controlX,y:+rel.dataset.controlY},boxes),preferred=simplifyRoute([ae].concat(routeLeg(ae,rel.dataset.fromSide,c),routeLeg(be,rel.dataset.toSide,c).reverse(),[be]));
  let middle=preferred,actualControl=c;
  if(!preferred.slice(1).every((p,i)=>clearSegment(preferred[i],p,boxes))){const first=gridRoute(ae,c,boxes),second=gridRoute(c,be,boxes);if(first&&second)middle=simplifyRoute(first.concat(second.slice(1)));else{middle=gridRoute(ae,be,boxes)||preferred;actualControl=middle[Math.floor(middle.length/2)]}}
+ const points=simplifyRoute([a].concat(middle,[b]));
+ actualControl=points.slice(1).map((q,i)=>({x:Math.max(Math.min(points[i].x,q.x),Math.min(Math.max(points[i].x,q.x),actualControl.x)),y:Math.max(Math.min(points[i].y,q.y),Math.min(Math.max(points[i].y,q.y),actualControl.y))})).reduce((best,q)=>!best||Math.abs(q.x-actualControl.x)+Math.abs(q.y-actualControl.y)<Math.abs(best.x-actualControl.x)+Math.abs(best.y-actualControl.y)?q:best,null)||a;
  rel.dataset.controlX=actualControl.x;rel.dataset.controlY=actualControl.y;
- return simplifyRoute([a].concat(middle,[b]));
+ return points;
 }
 function setCardinality(text,p,side){if(!text)return;if(side==='left'){text.setAttribute('x',p.x-8);text.setAttribute('y',p.y-6);text.setAttribute('text-anchor','end')}else if(side==='right'){text.setAttribute('x',p.x+8);text.setAttribute('y',p.y-6);text.setAttribute('text-anchor','start')}else if(side==='top'){text.setAttribute('x',p.x+8);text.setAttribute('y',p.y-7);text.setAttribute('text-anchor','start')}else{text.setAttribute('x',p.x+8);text.setAttribute('y',p.y+15);text.setAttribute('text-anchor','start')}}
 function updateRelation(rel){const pts=relationPoints(rel),value=pts.map(p=>p.x+','+p.y).join(' ');rel.querySelectorAll('polyline').forEach(p=>p.setAttribute('points',value));setCardinality(rel.querySelector('.cardinality[data-end="from"]'),pts[0],rel.dataset.fromSide);setCardinality(rel.querySelector('.cardinality[data-end="to"]'),pts[pts.length-1],rel.dataset.toSide);const controls=controlsFor(rel.dataset.relationId);if(!controls)return;controls.querySelectorAll('.route-snap').forEach(dot=>{const p=endpointPoint(rel,dot.dataset.end,dot.dataset.side);dot.setAttribute('cx',p.x);dot.setAttribute('cy',p.y)});const from=controls.querySelector('.route-endpoint[data-end="from"]'),to=controls.querySelector('.route-endpoint[data-end="to"]'),control=controls.querySelector('.route-control'),axisX=controls.querySelector('.route-axis-x'),axisY=controls.querySelector('.route-axis-y'),cx=parseFloat(rel.dataset.controlX),cy=parseFloat(rel.dataset.controlY);from.setAttribute('cx',pts[0].x);from.setAttribute('cy',pts[0].y);to.setAttribute('cx',pts[pts.length-1].x);to.setAttribute('cy',pts[pts.length-1].y);control.setAttribute('cx',cx);control.setAttribute('cy',cy);axisX.setAttribute('x1',cx-13);axisX.setAttribute('x2',cx+13);axisX.setAttribute('y1',cy);axisX.setAttribute('y2',cy);axisY.setAttribute('x1',cx);axisY.setAttribute('x2',cx);axisY.setAttribute('y1',cy-13);axisY.setAttribute('y2',cy+13)}
@@ -139,10 +141,11 @@ function setTablePosition(g,x,y){
  g.dataset.x=x;g.dataset.y=y;g.setAttribute('transform','translate('+(x-(+g.dataset.renderX))+' '+(y-(+g.dataset.renderY))+')');
 }
 v.addEventListener('pointerdown',e=>{
- if(tableDrag||groupDrag||routeDrag||panDrag)return;
- const target=e.target,controls=target.closest&&target.closest('.route-controls'),relHit=target.closest&&target.closest('.relation-route'),group=target.closest&&target.closest('g[data-table]'),frame=target.closest&&target.closest('g[data-table-group]');
+ if(tableDrag||noteDrag||groupDrag||routeDrag||panDrag)return;
+ const target=e.target,controls=target.closest&&target.closest('.route-controls'),relHit=target.closest&&target.closest('.relation-route'),group=target.closest&&target.closest('g[data-table]'),frame=target.closest&&target.closest('g[data-table-group]'),note=target.closest&&target.closest('g[data-note]');
  if(e.button===1||(e.button===0&&spaceDown)){e.preventDefault();panDrag={pointerId:e.pointerId,startX:e.clientX,startY:e.clientY,x:tx,y:ty};v.classList.add('dragging');capturePointer(v,e.pointerId);return}
  if(e.button!==0)return;
+ if(note){selectRelation(null);e.preventDefault();noteDrag={group:note,pointerId:e.pointerId,startClientX:e.clientX,startClientY:e.clientY,startX:+note.dataset.x,startY:+note.dataset.y};capturePointer(note,e.pointerId);return}
  if(controls&&target.classList.contains('route-snap')){const rel=Array.from(document.querySelectorAll('.relation-route')).find(g=>g.dataset.relationId===controls.dataset.controlsFor);if(!rel)return;selectRelation(rel);e.preventDefault();if(target.dataset.end==='from')rel.dataset.fromSide=target.dataset.side;else rel.dataset.toSide=target.dataset.side;updateRelation(rel);window.saveRelationRoute(rel);return}
  if(controls&&(target.classList.contains('route-control')||target.classList.contains('route-endpoint')||target.classList.contains('route-axis'))){const rel=Array.from(document.querySelectorAll('.relation-route')).find(g=>g.dataset.relationId===controls.dataset.controlsFor);if(!rel)return;selectRelation(rel);e.preventDefault();routeDrag={rel:rel,target:target,role:target.dataset.role||target.dataset.end,pointerId:e.pointerId,startClientX:e.clientX,startClientY:e.clientY,startX:+rel.dataset.controlX,startY:+rel.dataset.controlY};capturePointer(target,e.pointerId);return}
  if(relHit){selectRelation(relHit);e.preventDefault();routeDrag={rel:relHit,target:target,role:endpointRole(relHit,e),pointerId:e.pointerId,startClientX:e.clientX,startClientY:e.clientY,startX:+relHit.dataset.controlX,startY:+relHit.dataset.controlY};capturePointer(target,e.pointerId);return}
@@ -163,10 +166,10 @@ window.addEventListener('pointermove',e=>{
   else{const p=diagramPoint(e),box=tableBox(routeDrag.role==='from'?routeDrag.rel.dataset.fromTable:routeDrag.rel.dataset.toTable),side=closestSide(box,p,columnOffset(routeDrag.rel,routeDrag.role));if(routeDrag.role==='from')routeDrag.rel.dataset.fromSide=side;else routeDrag.rel.dataset.toSide=side}
   updateRelation(routeDrag.rel);return;
  }
- const current=tableDrag||groupDrag;if(!current||current.pointerId!==e.pointerId)return;
+ const current=tableDrag||noteDrag||groupDrag;if(!current||current.pointerId!==e.pointerId)return;
  e.preventDefault();if(!current.moved&&Math.hypot(e.clientX-current.startClientX,e.clientY-current.startClientY)<4)return;current.moved=true;
  let dx=(e.clientX-current.startClientX)/scale,dy=(e.clientY-current.startClientY)/scale;
- if(tableDrag)setTablePosition(current.group,snapCoordinate(current.startX+dx),snapCoordinate(current.startY+dy));
+ if(tableDrag||noteDrag)setTablePosition(current.group,snapCoordinate(current.startX+dx),snapCoordinate(current.startY+dy));
  else{
   const anchor=current.members[0];dx=snapCoordinate(anchor.x+dx)-anchor.x;dy=snapCoordinate(anchor.y+dy)-anchor.y;
   current.members.forEach(m=>setTablePosition(m.group,m.x+dx,m.y+dy));
@@ -175,6 +178,7 @@ window.addEventListener('pointermove',e=>{
  updateTableGroups();queueRoutes();
 });
 function finishPointerDrag(e){
+ if(noteDrag&&noteDrag.pointerId===e.pointerId){const current=noteDrag;noteDrag=null;releasePointer(current.group,e.pointerId);if(current.moved){flushRoutes();clearTimeout(viewTimer);send('N\t'+encodeURIComponent(current.group.dataset.note)+'\t'+current.group.dataset.x+'\t'+current.group.dataset.y+'\t'+viewSuffix())}return}
  if(panDrag&&panDrag.pointerId===e.pointerId){releasePointer(v,e.pointerId);panDrag=null;v.classList.remove('dragging');saveView();return}
  if(routeDrag&&routeDrag.pointerId===e.pointerId){const current=routeDrag;routeDrag=null;releasePointer(current.target,e.pointerId);if(current.moved)window.saveRelationRoute(current.rel);return}
  if(groupDrag&&groupDrag.pointerId===e.pointerId){
@@ -189,9 +193,9 @@ function finishPointerDrag(e){
 window.addEventListener('pointerup',finishPointerDrag);window.addEventListener('pointercancel',finishPointerDrag);
 window.addEventListener('keydown',e=>{if(e.code==='Space'&&!e.ctrlKey&&!e.metaKey&&!e.altKey){e.preventDefault();spaceDown=true;v.style.cursor='grab'}});
 window.addEventListener('keyup',e=>{if(e.code==='Space'){spaceDown=false;v.style.cursor=''}});
-window.addEventListener('blur',()=>{spaceDown=false;v.style.cursor='';const current=panDrag||routeDrag||tableDrag||groupDrag;if(current)finishPointerDrag({pointerId:current.pointerId})});
+window.addEventListener('blur',()=>{spaceDown=false;v.style.cursor='';const current=panDrag||routeDrag||tableDrag||noteDrag||groupDrag;if(current)finishPointerDrag({pointerId:current.pointerId})});
 v.addEventListener('wheel',e=>{
- e.preventDefault();if(tableDrag||groupDrag||routeDrag||panDrag)return;
+ e.preventDefault();if(tableDrag||noteDrag||groupDrag||routeDrag||panDrag)return;
  if(e.ctrlKey||e.metaKey)zoom(Math.exp(-e.deltaY*.002),e.clientX,e.clientY);
  else{const unit=e.deltaMode===1?16:e.deltaMode===2?innerHeight:1;tx-=(e.shiftKey&&!e.deltaX?e.deltaY:e.deltaX)*unit;ty-=(e.shiftKey&&!e.deltaX?0:e.deltaY)*unit;apply();clearTimeout(viewTimer);viewTimer=setTimeout(saveView,150)}
 },{passive:false});

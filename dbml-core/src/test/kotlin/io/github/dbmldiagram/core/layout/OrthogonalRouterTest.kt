@@ -4,6 +4,19 @@ import kotlin.math.abs
 import kotlin.test.*
 
 class OrthogonalRouterTest {
+    @Test fun `old control beyond shared route does not leave a horizontal spur`() {
+        val first = TableNode("lessons", 80.0, 400.0, 360.0, 100.0)
+        val second = TableNode("courses", 48.0, 60.0, 360.0, 100.0)
+        val route = OrthogonalRouter.route(relationshipAnchor(first, TableSide.TOP, 78.0), TableSide.TOP,
+            relationshipAnchor(second, TableSide.RIGHT, 52.0), TableSide.RIGHT,
+            DiagramPoint(235.0, 300.0), listOf(first, second))
+        assertAvoidsCards(route.points, listOf(first, second))
+        route.points.windowed(3).forEach { (a, b, c) ->
+            assertFalse(abs(a.y - b.y) < .01 && abs(b.y - c.y) < .01, "Horizontal tail: $a $b $c")
+            assertFalse(abs(a.x - b.x) < .01 && abs(b.x - c.x) < .01, "Vertical tail: $a $b $c")
+        }
+        assertTrue(route.points.zipWithNext().any { (a,b) -> abs(a.x - route.control.x) + abs(a.y - route.control.y) + abs(route.control.x-b.x) + abs(route.control.y-b.y) <= abs(a.x-b.x)+abs(a.y-b.y)+.01 })
+    }
     private val orders = TableNode("orders", 48.0, 412.0, 360.0, 100.0)
     private val users = TableNode("users", 264.0, 174.0, 390.0, 100.0)
 

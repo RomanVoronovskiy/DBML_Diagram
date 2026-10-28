@@ -11,6 +11,7 @@ internal data class PreviewLayoutUpdate(
     val positions: Map<String, DiagramPoint> = emptyMap(),
     val routes: Map<String, ManualRelationRoute> = emptyMap(),
     val view: PreviewViewState,
+    val notes: Map<String, DiagramPoint> = emptyMap(),
 )
 
 /** Decode completely before applying a batch: malformed group moves never partially update the layout. */
@@ -33,6 +34,10 @@ internal object PreviewChangeDecoder {
             "T" -> {
                 require(parts.size == 7 || parts.size == 9)
                 PreviewLayoutUpdate(mapOf(name(unescape(parts[1])) to DiagramPoint(number(parts[2]), number(parts[3]))), view = view(4))
+            }
+            "N" -> {
+                require(parts.size == 9)
+                PreviewLayoutUpdate(notes = mapOf(name(unescape(parts[1])) to DiagramPoint(number(parts[2]), number(parts[3]))), view = view(4))
             }
             "R" -> {
                 require(parts.size == 9 || parts.size == 11)

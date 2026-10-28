@@ -53,7 +53,8 @@ class DbmlPreviewEditor(private val project: Project, private val file: VirtualF
     private val positionStore = DiagramPositionStore(project, file)
     private val manualPositions = ConcurrentHashMap(positionStore.load())
     private val manualRoutes = ConcurrentHashMap(positionStore.loadRoutes())
-    private val layoutEngine = LayeredDiagramLayoutEngine(manualPositions, manualRoutes)
+    private val manualNotes = ConcurrentHashMap(positionStore.loadNotes())
+    private val layoutEngine = LayeredDiagramLayoutEngine(manualPositions, manualRoutes, manualNotes)
     private var displayedSvg: String? = null
     private val exportButtons = mutableListOf<JButton>()
     private var currentViewState: PreviewViewState? = positionStore.loadView()
@@ -96,8 +97,10 @@ class DbmlPreviewEditor(private val project: Project, private val file: VirtualF
         add(button("Reset layout") {
             manualPositions.clear()
             manualRoutes.clear()
+            manualNotes.clear()
             positionStore.clear()
             positionStore.clearRoutes()
+            positionStore.clearNotes()
             positionStore.clearView()
             currentViewState = null
             scheduler.renderNow(document.immutableCharSequence.toString())
@@ -105,6 +108,8 @@ class DbmlPreviewEditor(private val project: Project, private val file: VirtualF
         add(button("Refresh") { scheduler.renderNow(document.immutableCharSequence.toString()) })
         add(JLabel("DDL dialect:"))
         add(ddlDialect)
+        add(button("Import SQL") { io.github.dbmldiagram.plugin.importer.SqlImportAction.importSql(project, file.parent) }
+            .apply { toolTipText = "Convert a SQL DDL file to DBML using the official local converter" })
         add(exportButton("Export DDL") { schema, _ ->
             val dialect = ddlDialect.selectedItem as DdlDialect
             DiagramExporter.exportDdl(project, file, dialect.displayName, dialect.generator().generate(schema))
@@ -169,11 +174,13 @@ class DbmlPreviewEditor(private val project: Project, private val file: VirtualF
             if (disposed) return@invokeLater
             currentViewState = update.view
             positionStore.saveView(update.view)
-            if (update.positions.isEmpty() && update.routes.isEmpty()) return@invokeLater
+            if (update.positions.isEmpty() && update.routes.isEmpty() && update.notes.isEmpty()) return@invokeLater
             manualPositions.putAll(update.positions)
             manualRoutes.putAll(update.routes)
+            manualNotes.putAll(update.notes)
             positionStore.save(manualPositions)
             positionStore.saveRoutes(manualRoutes)
+            positionStore.saveNotes(manualNotes)
             scheduler.renderNow(document.immutableCharSequence.toString())
         }
     }
