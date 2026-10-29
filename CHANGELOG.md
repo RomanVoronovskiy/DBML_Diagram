@@ -4,6 +4,17 @@ All notable changes to DBML Diagram are documented in this file. The project fol
 
 ## [Unreleased]
 
+## [3.0.0] - 2026-10-29
+
+### PostgreSQL schema comparison and selected migrations
+
+- Read PostgreSQL catalogs in a dedicated read-only, repeatable-read JDBC transaction. Inspect the selected default/explicit DBML schemas; distinguish uninspected schemas and denied access from missing objects. Store passwords in PasswordSafe and keep snapshots in memory per file.
+- Highlight drift at table/column/index/constraint locations in DBML and add blue/amber diagram diagnostics. Compare edits against the cached snapshot without network calls; refresh with Compare DB and clear highlighting with Disconnect DB.
+- Add a selection panel with SQL preview. Export additions and prerequisite schemas, enums, tables, columns and keys. Match existing objects structurally. Direct operations requiring existing-data review start unchecked; all prerequisite SQL remains visible in the preview.
+- Compare column type, nullability, default and identity/sequence settings; PK/UNIQUE/index/FK/CHECK definitions and enum values. Report database-only objects without DROP statements. Conflicts, unsupported/generated/partitioned definitions, identity conversions and FK/enum changes require manual review.
+- Retain full DDL export independently of comparison. The plugin does not execute migrations. Bundle PostgreSQL JDBC 42.7.14 without a mandatory Database Tools dependency.
+- Add loopback-only Docker PostgreSQL 17.11 test/demo configuration and a CI service. Cover migration convergence, row preservation, reviewed alterations, composite keys, quoted names, restricted metadata access, read-only connections, cancellation, highlighting, selection and SVG/PNG diagnostics.
+
 ## [2.2.0] - 2026-10-28
 
 ### SQL import and canvas Notes

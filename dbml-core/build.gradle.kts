@@ -20,8 +20,11 @@ dependencies {
     testImplementation(kotlin("stdlib"))
     testImplementation(kotlin("test"))
     testRuntimeOnly("org.junit.platform:junit-platform-launcher:1.10.1")
+    testRuntimeOnly("org.postgresql:postgresql:42.7.14")
 }
 
 tasks.test {
     useJUnitPlatform()
+    inputs.property("postgresTestUrl", providers.environmentVariable("DBML_PG_TEST_URL").orElse(""))
+    outputs.upToDateWhen { System.getenv("DBML_PG_TEST_URL").isNullOrBlank() }
 }

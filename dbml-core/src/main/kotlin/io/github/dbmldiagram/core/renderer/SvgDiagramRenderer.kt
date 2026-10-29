@@ -77,7 +77,7 @@ class SvgDiagramRenderer : DiagramRenderer {
                     if (column.unique || column.name.lowercase() in uniqueColumns) add("UNIQ")
                     if (!column.nullable || primaryKey) add("NOT_NULL")
                 }.joinToString(" · ")
-                append("<text class=\"col${if (column.name.lowercase() in invalidColumns) " invalid" else ""}\" x=\"${node.x + 12}\" y=\"$y\">${escape(column.name)}</text>")
+                append("<text class=\"col${if (column.name.lowercase() in invalidColumns) " invalid" else ""}\" data-column=\"${escape(column.name)}\" x=\"${node.x + 12}\" y=\"$y\">${escape(column.name)}</text>")
                 append("<text class=\"badge\" text-anchor=\"end\" x=\"${node.x + node.width - 105}\" y=\"$y\">${escape(badges)}</text>")
                 append("<text class=\"col type\" text-anchor=\"end\" x=\"${node.x + node.width - 12}\" y=\"$y\">${escape(column.type)}</text>")
             }

@@ -14,6 +14,10 @@
         <toolWindow id="dbdiagram.io" anchor="right" factoryClass="io.github.dbmldiagram.plugin.cloud.DbdiagramToolWindowFactory"/>
     </extensions>
     <actions>
+        <action id="DBML.ComparePostgres" class="io.github.dbmldiagram.plugin.database.CompareDatabaseAction" text="Compare DBML with PostgreSQL…" description="Compare DBML with a read-only database snapshot and generate a selected migration">
+            <add-to-group group-id="ToolsMenu" anchor="last"/>
+            <add-to-group group-id="EditorPopupMenu" anchor="last"/>
+        </action>
         <action id="DBML.ImportSql" class="io.github.dbmldiagram.plugin.importer.SqlImportAction" text="Import SQL to DBML…" description="Convert local SQL DDL into a new DBML file">
             <add-to-group group-id="ToolsMenu" anchor="last"/>
         </action>
