@@ -1,12 +1,18 @@
 # DBML Diagram privacy and data handling
 
-Updated: 2026-10-28 — version 2.2.0.
+Updated: 2026-10-29 — version 3.0.0.
 
 ## Local features
 
 Local DBML editing, parsing, validation, diagram preview, and SVG/PNG/DDL exports run on your computer. They do not send schemas to the plugin author or require dbdiagram.io. The plugin adds no analytics or telemetry of its own.
 
 Table positions, relationship routes, and cloud file bindings are saved in IDE workspace storage. Cloud bindings contain the local file URL, remote diagram ID/name, an opaque connection identifier, and a SHA-256 hash of the last synchronized remote DBML. They do not contain the DBML source or API credentials. Connection settings store only the chosen backend, CLI executable paths, optional workspace ID, and an opaque connection identifier.
+
+## PostgreSQL schema comparison
+
+When explicitly requested with Compare DB, the plugin connects directly to the chosen PostgreSQL host. It sends credentials through PostgreSQL JDBC using the selected SSL mode and reads catalog metadata in a read-only transaction. It does not select application-table rows or execute generated migrations. Use verify-full with appropriate certificates when server identity verification is required. Host, port, database, user, schema, SSL mode and a credential identifier are stored in IDE workspace settings. Remembered passwords are stored only in IDE PasswordSafe, whose persistence/encryption behavior depends on the configured IDE provider.
+
+Snapshots contain table/column names, types, defaults, keys, indexes, checks and relationships and are held only in memory per DBML file. Editor changes compare against the snapshot locally. Compare DB refreshes it; Disconnect DB clears it; closing the project removes snapshots. Disconnect keeps the saved profile/password; uncheck Remember password when connecting to clear that profile's saved password. No snapshot, password or migration is uploaded to the plugin author or dbdiagram.io by this feature. SQL is saved only to the chosen destination. Query/connect timeouts bound network operations.
 
 ## Local SQL import
 

@@ -6,6 +6,14 @@
   <b>DBML Diagram</b> adds a realtime, error-tolerant diagram preview to <code>.dbml</code> files while preserving the standard IntelliJ editor workflow.
 </p>
 
+<p><b>New in 3.0.0: PostgreSQL comparison and migrations</b></p>
+<ul>
+  <li>Connect directly to PostgreSQL 15+ and read schema catalogs through a dedicated read-only JDBC connection</li>
+  <li>Highlight missing/changed objects in DBML and the diagram; review database-only objects without generated DROP operations</li>
+  <li>Select changes, inspect prerequisite SQL, and export a partial migration rather than recreate existing tables</li>
+  <li>Keep remembered passwords in IDE PasswordSafe and snapshots only in memory per file; refresh explicitly after applying migrations</li>
+  <li>No Database Tools plugin is required. The plugin does not execute migration SQL; review data-dependent operations before applying</li>
+</ul>
 <p><b>Interactive ER diagrams</b></p>
 <ul>
   <li>Use Code, Preview, or Code + Preview mode</li>
@@ -64,7 +72,7 @@
   Keep database schemas together with source code, review schema changes, and maintain DBML documentation without leaving the IDE.
 </p>
 <p>
-  Version 2.2.0 adds local SQL-to-DBML import, movable sticky Notes/project descriptions, and cleaner relationship routing. Import requires Node.js and npm install -g @dbml/cli; other local features retain their existing dependencies. Import does not execute SQL or require a database account. Review converted schemas before migrations. Notes wrap long text, retain full tooltips, and are included in Fit and SVG/PNG export. Free SVG canvas navigation, colored TableGroup frames, CHECK constraints, composite foreign keys, SQL exports, and optional dbdiagram.io sync are retained. PNG size limits still apply. Group membership comes from DBML. Multi-selection and layout Undo/Redo are not included. CHECK expressions are preserved rather than evaluated or translated. Supports IntelliJ Platform builds 241–262 (2024.1–2026.2).
+  Version 3.0.0 adds PostgreSQL schema comparison, drift highlighting and selected migration SQL. Database comparison requires an explicit PostgreSQL connection; offline editing/export remains available. SQL-to-DBML import, movable Notes, free SVG canvas navigation, TableGroup frames, CHECK constraints, composite keys and optional dbdiagram.io sync are retained. Import requires Node.js and the separately installed @dbml/cli. Generated SQL is exported for review and is never executed by the plugin. Multi-selection and layout Undo/Redo are not included. Supports IntelliJ Platform builds 241–262 (2024.1–2026.2).
 </p>
 
 <p>

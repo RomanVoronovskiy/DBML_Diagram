@@ -24,6 +24,8 @@ import io.github.dbmldiagram.core.model.DbmlSchema
 import io.github.dbmldiagram.core.parser.TolerantDbmlParser
 import io.github.dbmldiagram.core.renderer.SvgDiagramRenderer
 import io.github.dbmldiagram.plugin.cloud.CloudController
+import io.github.dbmldiagram.plugin.database.DatabaseComparisonService
+import io.github.dbmldiagram.core.database.DatabaseDiagramOverlay
 import io.github.dbmldiagram.plugin.preview.DebouncedRenderScheduler
 import io.github.dbmldiagram.plugin.preview.DiagramExporter
 import io.github.dbmldiagram.plugin.preview.DiagramPositionStore
@@ -81,6 +83,9 @@ class DbmlPreviewEditor(private val project: Project, private val file: VirtualF
         panel.add(createToolbar(), BorderLayout.NORTH)
         panel.add(browser?.component ?: fallback, BorderLayout.CENTER)
         document.addDocumentListener(listener, this)
+        DatabaseComparisonService.get(project).subscribe(this) {
+            if(!disposed) scheduler.renderNow(document.immutableCharSequence.toString())
+        }
         scheduler.renderNow(document.immutableCharSequence.toString())
     }
 
@@ -106,6 +111,12 @@ class DbmlPreviewEditor(private val project: Project, private val file: VirtualF
             scheduler.renderNow(document.immutableCharSequence.toString())
         }.apply { toolTipText = "Discard saved table positions and relationship routes" })
         add(button("Refresh") { scheduler.renderNow(document.immutableCharSequence.toString()) })
+        add(button("Compare DB") { DatabaseComparisonService.get(project).connectAndCompare(file) }
+            .apply { toolTipText="Read PostgreSQL catalog metadata and compare with this DBML file" })
+        add(button("DB differences") { DatabaseComparisonService.get(project).showDifferences(file) }
+            .apply { toolTipText="Review differences against the cached database snapshot and export selected migration SQL" })
+        add(button("Disconnect DB") { DatabaseComparisonService.get(project).disconnect(file) }
+            .apply { toolTipText="Clear this file's snapshot and database-drift highlighting" })
         add(JLabel("DDL dialect:"))
         add(ddlDialect)
         add(button("Import SQL") { io.github.dbmldiagram.plugin.importer.SqlImportAction.importSql(project, file.parent) }
@@ -156,10 +167,14 @@ class DbmlPreviewEditor(private val project: Project, private val file: VirtualF
                 ddlDialectInitialized = true
             }
         }
-        val message = errors.joinToString("\n") { "DBML ${it.severity.name.lowercase()}: line ${it.line}: ${it.message}" }.ifEmpty { null }
+        val database=DatabaseComparisonService.get(project)
+        val comparison=schema?.let { database.comparison(file,it) }
+        val message = (errors.map { "DBML ${it.severity.name.lowercase()}: line ${it.line}: ${it.message}" } +
+            listOfNotNull(comparison?.let { "PostgreSQL: ${it.differences.size} differences; snapshot ${java.time.Instant.ofEpochMilli(it.capturedAtMillis)}. Use DB differences to review; Compare DB to refresh." }))
+            .joinToString("\n").ifEmpty { null }
         val viewState = currentViewState
         val html = PreviewHtml.page(
-            displayedSvg,
+            if(comparison!=null && displayedSvg!=null) DatabaseDiagramOverlay.decorate(displayedSvg!!,comparison) else displayedSvg,
             message,
             JBColor.isBright().not(),
             positionQuery?.inject("payload"),

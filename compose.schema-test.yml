@@ -1,0 +1,19 @@
+name: dbml-schema-test
+services:
+  postgres:
+    image: postgres:17.11-alpine
+    environment:
+      POSTGRES_DB: dbml_test
+      POSTGRES_USER: dbml_test
+      POSTGRES_PASSWORD: local_schema_test_only
+    ports:
+      - "127.0.0.1:${DBML_TEST_PORT:-55439}:5432"
+    tmpfs:
+      - /var/lib/postgresql/data
+    volumes:
+      - ./examples/database-comparison-current.sql:/docker-entrypoint-initdb.d/001-demo.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U dbml_test -d dbml_test"]
+      interval: 2s
+      timeout: 3s
+      retries: 30

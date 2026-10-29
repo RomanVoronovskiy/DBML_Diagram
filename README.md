@@ -4,10 +4,11 @@
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 [![IntelliJ Platform](https://img.shields.io/badge/IntelliJ%20Platform-2024.1--2026.2-purple.svg)](https://plugins.jetbrains.com/)
 
-DBML Diagram is an open-source IntelliJ Platform plugin that shows a realtime SVG entity-relationship diagram next to a `.dbml` file. Version **2.2.0** adds **SQL → DBML import**, movable canvas Notes, and cleaner relationship routing. It supports Platform builds **241–262** (2024.1–2026.2) and retains the free SVG canvas, colored TableGroup frames, CHECK constraints, composite foreign keys, and optional dbdiagram.io synchronization. Local editing, preview, validation, and exports remain offline. It supports IntelliJ IDEA and DataGrip-compatible Platform IDEs.
+DBML Diagram is an open-source IntelliJ Platform plugin that shows a realtime SVG entity-relationship diagram next to a `.dbml` file. Version **3.0.0** adds **PostgreSQL schema comparison and selected migration SQL**, with editor and diagram drift highlighting. It supports Platform builds **241–262** (2024.1–2026.2), SQL → DBML import, movable Notes, the free SVG canvas, colored TableGroup frames, CHECK constraints, composite foreign keys, and optional dbdiagram.io synchronization. Local editing, preview, validation, and exports remain offline. It supports IntelliJ IDEA and DataGrip-compatible Platform IDEs.
 
 ## Features
 
+- Compare DBML with PostgreSQL catalog metadata, highlight drift, and export a selected partial migration with prerequisites.
 - Standard IntelliJ text editor with **Code**, **Preview**, and **Code + Preview** modes.
 - Debounced (300 ms), cancellable background parsing, layout, and SVG rendering.
 - Reuse the most recent parse result when only the diagram layout changes, and skip superseded work between rendering stages.
@@ -31,6 +32,39 @@ DBML Diagram is an open-source IntelliJ Platform plugin that shows a realtime SV
 - Optional dbdiagram.io browser login through the official CLI, or a workspace API token stored in IDE PasswordSafe.
 - Search and select remote diagrams in **My Diagrams**, download DBML, link an existing file, and explicitly Pull or Push.
 - Local editing, preview, validation, and SVG/PNG/DDL exports do not require an account, network access, Node.js, or CLI tools.
+
+## PostgreSQL comparison and migration SQL (3.0.0)
+
+DBML is the desired schema; the database snapshot is the current schema. The plugin reads catalog metadata through its bundled JDBC driver, independently of the IDE's Database Tools plugin and dbdiagram.io. PostgreSQL **15+** is required; integration tests use **17.11**. Other databases are not supported for live comparison in this release.
+
+1. Open a valid `.dbml` file and click **Compare DB**, or use **Tools → Compare DBML with PostgreSQL…** / the editor context menu.
+2. Enter host, port, database, user, SSL mode and default schema. Unqualified DBML tables/enums map to that schema; explicit DBML table schemas are inspected too. A remembered password goes to IDE PasswordSafe. For remote servers choose the SSL/certificate verification appropriate to your deployment, such as `verify-full`.
+3. **Connect and compare** reads a consistent, read-only snapshot of the catalogs, without selecting application-table rows. The account needs access to the database and USAGE on the inspected schemas. Connection/query timeouts and metadata size limits bound requests; catalog rows are fetched in batches. A failed or canceled refresh does not display a previous snapshot as a successful comparison.
+4. Review the differences table. Missing database objects have blue diagram outlines/underlines; changed definitions have amber diagnostics. Warnings appear at DBML declarations with explanations. Database-only objects are listed without DROP commands, and database-only columns point to their table declaration.
+5. Select operations and inspect the complete SQL preview. Prerequisite schemas, enums, tables, columns and keys are automatically included even if not checked separately. Direct operations requiring data review start unchecked, and any review-required prerequisite is marked in the SQL preview. **Save migration SQL…** writes a `.sql` file, not a full schema recreation.
+6. Review/apply the SQL using your database workflow. The plugin **does not execute it**. Click **Compare DB** again to obtain a fresh snapshot and confirm the applied differences have disappeared.
+
+**DB differences** recomputes the panel against the cached snapshot. Editor changes likewise compare locally without querying PostgreSQL per keystroke. The timestamp in the preview identifies the snapshot; it is not a continuously live database view. Adding a DBML schema outside its scope requires a fresh comparison. Snapshots are in memory per file, are lost on project close, and are cleared with **Disconnect DB**. That button clears highlighting but retains the saved profile/password. Full DDL/SVG/PNG export remains independent; transient database highlighting is for the interactive comparison view.
+
+Comparison covers tables/columns, scalar types, nullability, defaults, identity/serial presence, enums, PK/UNIQUE, basic btree indexes, FKs/actions and CHECKs. Keys/constraints are matched structurally rather than by automatically generated names. Literal-aware normalization handles common PostgreSQL type aliases, string casts, enum defaults and simple CHECK parentheses/casts. Unknown or complex expressions are compared conservatively and may require manual review.
+
+Additions can generate `CREATE SCHEMA/TYPE/TABLE`, `ADD COLUMN/CONSTRAINT` and `CREATE INDEX`. Selected type/nullability/default alterations are marked for existing-data review. Identity conversions, enum changes, conflicting names/definitions and unsupported generated/partitioned layouts have no automatic SQL. No renames or DROP operations are inferred. Partial/expression/special indexes do not satisfy a basic complete index or unique key. Comments, views, triggers, policies, grants, storage/partition options, collations and arbitrary SQL features are not a complete migration target in this version. Generated migrations are plans against a snapshot, not an atomic database synchronization service: verify the schema is still current and review data-dependent failures before applying.
+
+### Disposable PostgreSQL tests and interactive demo
+
+```powershell
+docker compose -f compose.schema-test.yml up -d --wait
+$env:DBML_PG_TEST_URL = 'jdbc:postgresql://127.0.0.1:55439/dbml_test'
+$env:DBML_PG_TEST_USER = 'dbml_test'
+$env:DBML_PG_TEST_PASSWORD = 'local_schema_test_only'
+.\gradlew.bat test :dbml-intellij-plugin:testPackagedPlugin
+```
+
+The separate `dbml-schema-test` Compose project binds only `127.0.0.1:55439` (override with `DBML_TEST_PORT`), uses tmpfs data, and leaves other local containers/databases untouched. Test credentials above are for this disposable loopback instance only. Tests create random owned schemas, apply generated migrations there, re-read catalogs, assert convergence and row preservation, and remove their schemas. They also test limited metadata permissions and that the plugin connection rejects writes at the server. Without `DBML_PG_TEST_URL`, live tests are explicitly skipped; CI supplies a PostgreSQL service and runs them.
+
+For a manual demo open [database-comparison.dbml](examples/database-comparison.dbml) and connect using the test values above, default schema `public`, SSL `disable`. The container's initial synthetic baseline is [database-comparison-current.sql](examples/database-comparison-current.sql): one `users` table with a shorter `name`, no email, and no orders. You should see the column/type/table/constraint differences and a partial migration. These examples contain no private schemas. Stop the test instance with `docker compose -f compose.schema-test.yml down`; tmpfs data disappears.
+
+![Synthetic PostgreSQL drift comparison in the interactive preview](docs/images/database-comparison-dark.png)
 
 ## SQL import and movable Notes (2.2.0)
 

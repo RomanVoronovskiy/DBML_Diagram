@@ -1,0 +1,24 @@
+Project database_comparison {
+  database_type: 'PostgreSQL'
+  Note: 'Compare with the disposable PostgreSQL database. Blue: missing objects; amber: changed definitions.'
+}
+
+Table users {
+  id bigint [pk]
+  name varchar(255)
+  email varchar(255) [unique]
+}
+
+Table orders {
+  id bigint [pk, increment]
+  user_id bigint [not null]
+  amount numeric(10,2) [default: 0]
+  indexes {
+    user_id
+  }
+  checks {
+    `amount >= 0` [name: 'ck_orders_amount']
+  }
+}
+
+Ref: orders.user_id > users.id [delete: cascade]

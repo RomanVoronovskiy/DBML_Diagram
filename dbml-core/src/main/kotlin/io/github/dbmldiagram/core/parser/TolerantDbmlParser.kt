@@ -225,7 +225,9 @@ private class Parser(private val tokens: List<Token>, initialErrors: List<DbmlPa
     }
 
     private fun parseTable() {
+        val headerPosition = position
         val header = parseQualifiedName() ?: run { error("Expected table name", peek()); skipLine(); return }
+        val headerRange = sourceRange(tokens.subList(headerPosition, position))
         var alias: String? = null
         if (matchWord("as")) alias = identifierOrNull()
         val headerSettings = if (consumeSymbol("[")) collectUntilClosingBracket() else emptyList()
@@ -257,7 +259,7 @@ private class Parser(private val tokens: List<Token>, initialErrors: List<DbmlPa
                     range?.column ?: 1, DbmlParseSeverity.ERROR)
             }
         }
-        tables += DbmlTable(header.first, header.second, alias, headerNote ?: blockNote, columns, indexes, checks)
+        tables += DbmlTable(header.first, header.second, alias, headerNote ?: blockNote, columns, indexes, checks, headerRange)
     }
 
     private fun parseColumn(table: Pair<String?, String>, existing: List<DbmlColumn>): Pair<DbmlColumn, List<DbmlReference>>? {
@@ -282,6 +284,7 @@ private class Parser(private val tokens: List<Token>, initialErrors: List<DbmlPa
             nullable = explicitlyNull || !notNull, unique = hasSetting(settings, "unique"),
             increment = hasSetting(settings, "increment"), defaultValue = defaultValue(settings),
             note = settingValue(settings, "note"),
+            sourceRange = sourceRange(listOf(start) + typeTokens),
             checks = settingSegments(settings).filter { it.firstOrNull()?.text.equals("check", true) }.mapNotNull { segment ->
                 if (segment.getOrNull(1)?.isSymbol(":") != true) {
                     error("Expected ':' after check", segment.first())
@@ -340,6 +343,7 @@ private class Parser(private val tokens: List<Token>, initialErrors: List<DbmlPa
                 unique = hasSetting(settings, "unique"),
                 primaryKey = hasSetting(settings, "pk") || hasSetting(settings, "primary key"),
                 name = settingValue(settings, "name"),
+                sourceRange = sourceRange(expression),
             )
         }
         closeBlock("indexes")

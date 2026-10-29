@@ -32,6 +32,7 @@ configurations.configureEach {
 
 dependencies {
     implementation(project(":dbml-core"))
+    implementation("org.postgresql:postgresql:42.7.14")
     implementation("org.apache.xmlgraphics:batik-transcoder:1.19")
     implementation("org.apache.xmlgraphics:batik-codec:1.19")
     testImplementation("junit:junit:4.13.2")
@@ -77,6 +78,14 @@ intellijPlatform {
 tasks {
     patchPluginXml {
         changeNotes = """
+            <h3>3.0.0 — PostgreSQL schema comparison and migrations</h3>
+            <ul>
+              <li>Compare DBML with PostgreSQL through a dedicated read-only JDBC connection.</li>
+              <li>Highlight missing/changed objects in the editor and diagram; list database-only objects.</li>
+              <li>Select changes, preview SQL with prerequisites, and export a partial migration.</li>
+              <li>Keep passwords in PasswordSafe and snapshots in memory; refresh or disconnect explicitly.</li>
+              <li>Verify migrations against a disposable Docker PostgreSQL database, including row preservation and repeat comparison.</li>
+            </ul>
             <h3>2.2.0 — SQL import and canvas notes</h3>
             <ul>
               <li>Import PostgreSQL, MySQL, and Oracle DDL through the official locally installed @dbml/cli converter, from Tools or the preview toolbar.</li>
@@ -160,6 +169,8 @@ tasks {
 }
 
 tasks.test {
+    inputs.property("postgresTestUrl", providers.environmentVariable("DBML_PG_TEST_URL").orElse(""))
+    outputs.upToDateWhen { System.getenv("DBML_PG_TEST_URL").isNullOrBlank() }
     systemProperty("dbml.preview.fixture", layout.buildDirectory.file("reports/preview-fixture.html").get().asFile.absolutePath)
     systemProperty("dbml.groups.example", rootProject.file("examples/table-groups.dbml").absolutePath)
 }

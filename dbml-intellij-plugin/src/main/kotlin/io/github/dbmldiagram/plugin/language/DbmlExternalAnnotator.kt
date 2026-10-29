@@ -10,13 +10,30 @@ import com.intellij.psi.PsiFile
 import io.github.dbmldiagram.core.model.DbmlParseError
 import io.github.dbmldiagram.core.model.DbmlParseSeverity
 import io.github.dbmldiagram.core.parser.TolerantDbmlParser
+import io.github.dbmldiagram.core.database.DatabaseSnapshot
+import io.github.dbmldiagram.core.database.PostgresSchemaDiff
+import io.github.dbmldiagram.plugin.database.DatabaseComparisonService
 
-class DbmlExternalAnnotator : ExternalAnnotator<String, List<DbmlParseError>>() {
-    override fun collectInformation(file: PsiFile): String? =
-        if (file.language == DbmlLanguage) file.text else null
+data class DbmlAnnotationInput(val text: String,val snapshot: DatabaseSnapshot?=null,val defaultSchema: String="public")
 
-    override fun doAnnotate(collectedInfo: String): List<DbmlParseError> =
-        TolerantDbmlParser().parse(collectedInfo).errors
+class DbmlExternalAnnotator : ExternalAnnotator<DbmlAnnotationInput, List<DbmlParseError>>() {
+    override fun collectInformation(file: PsiFile): DbmlAnnotationInput? {
+        if(file.language!=DbmlLanguage) return null
+        val session=file.virtualFile?.let { DatabaseComparisonService.get(file.project).session(it) }
+        return DbmlAnnotationInput(file.text,session?.snapshot,session?.defaultSchema ?: "public")
+    }
+
+    override fun doAnnotate(collectedInfo: DbmlAnnotationInput): List<DbmlParseError> {
+        val parsed=TolerantDbmlParser().parse(collectedInfo.text)
+        val snapshot=collectedInfo.snapshot
+        if(parsed.hasErrors || parsed.schema==null || snapshot==null) return parsed.errors
+        val differences=PostgresSchemaDiff().compare(parsed.schema!!,snapshot,collectedInfo.defaultSchema).differences
+        return parsed.errors + differences.map { difference ->
+            val range=difference.range
+            DbmlParseError("Database drift: ${difference.objectName}: ${difference.message}",range?.line ?: 1,range?.column ?: 1,
+                DbmlParseSeverity.WARNING,range?.endLine ?: 1,range?.endColumn ?: 2)
+        }
+    }
 
     override fun apply(file: PsiFile, annotationResult: List<DbmlParseError>, holder: AnnotationHolder) {
         val document = PsiDocumentManager.getInstance(file.project).getDocument(file) ?: return

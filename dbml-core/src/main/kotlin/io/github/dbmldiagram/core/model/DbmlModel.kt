@@ -39,6 +39,7 @@ data class DbmlTable(
     val columns: List<DbmlColumn> = emptyList(),
     val indexes: List<DbmlIndex> = emptyList(),
     val checks: List<DbmlCheck> = emptyList(),
+    val sourceRange: DbmlSourceRange? = null,
 ) {
     val qualifiedName: String get() = schema?.let { "$it.$name" } ?: name
 }
@@ -53,6 +54,7 @@ data class DbmlColumn(
     val defaultValue: String? = null,
     val note: String? = null,
     val checks: List<DbmlCheck> = emptyList(),
+    val sourceRange: DbmlSourceRange? = null,
 )
 
 data class DbmlCheck(val expression: String, val name: String? = null, val sourceRange: DbmlSourceRange? = null)
@@ -62,6 +64,7 @@ data class DbmlIndex(
     val unique: Boolean = false,
     val primaryKey: Boolean = false,
     val name: String? = null,
+    val sourceRange: DbmlSourceRange? = null,
 )
 data class DbmlEnum(val name: String, val values: List<String>)
 
