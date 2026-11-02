@@ -16,7 +16,7 @@ repositories {
 
 dependencies {
     // IDEA 2024.1 supplies Kotlin 1.9.22. Do not ship a second, newer stdlib.
-    compileOnly("org.jetbrains.kotlin:kotlin-stdlib:1.9.22")
+    compileOnly("org.jetbrains.kotlin:kotlin-stdlib:2.4.21")
     testImplementation(kotlin("stdlib"))
     testImplementation(kotlin("test"))
     testRuntimeOnly("org.junit.platform:junit-platform-launcher:1.10.1")
